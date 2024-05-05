@@ -13,7 +13,7 @@ import (
 	"github.com/jpillora/opts"
 )
 
-func NewGoadlc() opts.Opts {
+func NewGenGo() opts.Opts {
 	wk, err := os.MkdirTemp("", "goadlc-")
 	if err != nil {
 		glog.Warningf(`os.MkdirTemp("", "goadlc-") %v`, err)
@@ -22,13 +22,13 @@ func NewGoadlc() opts.Opts {
 	if err != nil {
 		glog.Warningf(`error getting current working directory %v`, err)
 	}
-	return opts.New(&goadlcCmd{
+	return opts.New(&gengoCmd{
 		WorkingDir: wk,
 		Outputdir:  cwd,
 	})
 }
 
-type goadlcCmd struct {
+type gengoCmd struct {
 	WorkingDir  string
 	Searchdir   []string `opts:"short=I" help:"Add the specifed directory to the ADL searchpath"`
 	Outputdir   string   `opts:"short=O" help:"Set the directory where generated code is written "`
@@ -40,11 +40,11 @@ type goadlcCmd struct {
 	Files []string `opts:"mode=arg"`
 }
 
-func (in *goadlcCmd) workingDir() string  { return in.WorkingDir }
-func (in *goadlcCmd) searchdir() []string { return in.Searchdir }
-func (in *goadlcCmd) mergeAdlext() string { return in.MergeAdlext }
-func (in *goadlcCmd) debug() bool         { return in.Debug }
-func (in *goadlcCmd) files() []string     { return in.Files }
+func (in *gengoCmd) workingDir() string  { return in.WorkingDir }
+func (in *gengoCmd) searchdir() []string { return in.Searchdir }
+func (in *gengoCmd) mergeAdlext() string { return in.MergeAdlext }
+func (in *gengoCmd) debug() bool         { return in.Debug }
+func (in *gengoCmd) files() []string     { return in.Files }
 
 type ModuleCodeGen struct {
 	Directory []string
@@ -57,7 +57,7 @@ type DeclCodeGen struct {
 	Decl        goadl.Decl
 }
 
-func (in *goadlcCmd) Run() error {
+func (in *gengoCmd) Run() error {
 	if len(in.Files) == 0 {
 		return fmt.Errorf("no files specified")
 	}
@@ -81,7 +81,7 @@ func (in *goadlcCmd) Run() error {
 	_ = combinedAst
 	_ = declMap
 	if err != nil {
-		os.Exit(1)
+		return err
 	}
 	// fmt.Printf("cli modules\n")
 	for _, m := range modules {
@@ -111,7 +111,7 @@ func (in *goadlcCmd) Run() error {
 	return nil
 }
 
-func (in *goadlcCmd) generalDecl(fname string, path string, name string, modCodeGen ModuleCodeGen, decl goadl.Decl, moduleName string) {
+func (in *gengoCmd) generalDecl(fname string, path string, name string, modCodeGen ModuleCodeGen, decl goadl.Decl, moduleName string) {
 	var fd *os.File = nil
 	var err error
 	fd, err = os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
@@ -128,7 +128,7 @@ func (in *goadlcCmd) generalDecl(fname string, path string, name string, modCode
 	fmt.Fprintf(fd, "package %s\n", modCodeGen.Directory[len(modCodeGen.Directory)-1])
 	fmt.Fprintf(fd, "\n")
 	fmt.Fprintf(fd, "import (\n")
-	fmt.Fprintf(fd, "	\"github.com/helix-collective/goadl/v1\"\n")
+	fmt.Fprintf(fd, "	\"github.com/adl-lang/goadl_rt\"\n")
 	fmt.Fprintf(fd, ")\n")
 	fmt.Fprintf(fd, "\n")
 	fmt.Fprintf(fd, "type %s struct {\n", name)
@@ -146,8 +146,8 @@ func (in *goadlcCmd) generalDecl(fname string, path string, name string, modCode
 	}
 	fmt.Fprintf(fd, "}\n")
 	fmt.Fprintf(fd, `func init() {
-	goadl.RESOLVER.Register(
-		goadl.ScopedName{
+	goadl_rt.RESOLVER.Register(
+		goadl_rt.ScopedName{
 			ModuleName: "%[1]s",
 			Name:       "%[2]s",
 		},

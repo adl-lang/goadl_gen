@@ -14,7 +14,7 @@ func main() {
 	op := opts.New(rflg).
 		Name("goadlc").
 		EmbedGlobalFlagSet().
-		AddCommand(gen_go.NewGoadlc().Name("go")).
+		AddCommand(gen_go.NewGenGo().Name("go")).
 		Complete().
 		AddCommand(opts.New(&versionCmd{}).Name("version")).
 		Parse()
@@ -22,7 +22,12 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%s", op.Help())
 		os.Exit(1)
 	}
-	op.RunFatal()
+	err := op.Run()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		fmt.Fprintf(os.Stderr, "%s", op.Selected().Help())
+		os.Exit(2)
+	}
 }
 
 // Set by build tool chain by
