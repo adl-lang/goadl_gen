@@ -1,7 +1,5 @@
 github.com/adl-lang/goadl_rt v1.0.0 h1:zxw1c8Jrfi8kW2UNeaeYOiyXMXC+GBTeJJOpRDFzjQI=
 github.com/adl-lang/goadl_rt v1.0.0/go.mod h1:LWFtnHHXeJJfmn4n6pcGizhv5GjUj+oIV2f2IDoLUXs=
-github.com/adl-lang/goadl_rt/v2 v2.0.0-alpha.1 h1:qjh1fXLkuS3wadhPpS2UPdExPfUfXCM2JddJQzrj2iw=
-github.com/adl-lang/goadl_rt/v2 v2.0.0-alpha.1/go.mod h1:7NnNx/vhDhwktBwGeO4Rlt352y6RYR9VF9gIXoeUbu8=
 github.com/adl-lang/goadl_rt/v2 v2.0.0-alpha.2 h1:M7MNUspr0yF8585DNAL2ue9W0/uuh7VrI053BgXFjlA=
 github.com/adl-lang/goadl_rt/v2 v2.0.0-alpha.2/go.mod h1:7NnNx/vhDhwktBwGeO4Rlt352y6RYR9VF9gIXoeUbu8=
 github.com/golang/glog v1.2.1 h1:OptwRhECazUx5ix5TTWC3EZhsZEHWcYWY4FQHTIubm4=
