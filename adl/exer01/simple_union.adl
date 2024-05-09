@@ -1,0 +1,11 @@
+module exer01.simple_union {
+
+union UnionOfPrimitives {
+    Int32 A;
+    Int64 B;
+    Bool  c;
+    Double d;
+    String e;
+};
+
+};

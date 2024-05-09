@@ -1,4 +1,4 @@
-package gen_go
+package gen_go_v2
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	goadl "github.com/adl-lang/goadl_rt"
+	goadl "github.com/adl-lang/goadl_rt/v2"
 	"github.com/golang/glog"
 )
 
@@ -25,22 +25,22 @@ type DeclCodeGen struct {
 	Decl        goadl.Decl
 }
 
-func makeAdlcAstArgs(in GoAdlcCmd, pathSuffix string) []string {
+func makeAdlcAstArgs(in *goadlcV2Cmd, pathSuffix string) []string {
 	args := []string{
-		"ast", "--outputdir", in.workingDir() + pathSuffix,
-		"--manifest", in.workingDir() + pathSuffix + "/.manifest",
+		"ast", "--outputdir", in.WorkingDir + pathSuffix,
+		"--manifest", in.WorkingDir + pathSuffix + "/.manifest",
 	}
-	if in.debug() {
+	if in.Debug {
 		args = append(args, "--verbose")
 	}
-	if in.mergeAdlext() != "" {
-		args = append(args, "--merge-adlext", in.mergeAdlext())
+	if in.MergeAdlext != "" {
+		args = append(args, "--merge-adlext", in.MergeAdlext)
 	}
-	for _, dir := range in.searchdir() {
+	for _, dir := range in.Searchdir {
 		args = append(args, "--searchdir", dir)
 	}
-	args = append(args, in.files()...)
-	if in.debug() {
+	args = append(args, in.Files...)
+	if in.Debug {
 		fmt.Fprintf(os.Stderr, "cmd '%s'\n", strings.Join(args, " "))
 	}
 	return args
@@ -61,23 +61,15 @@ type moduleTuple[M any] struct {
 
 type moduleMap[M any] map[string]M
 
-type GoAdlcCmd interface {
-	workingDir() string
-	mergeAdlext() string
-	debug() bool
-	searchdir() []string
-	files() []string
-}
-
 func loadAdl[M any, D any](
-	in GoAdlcCmd,
+	in *goadlcV2Cmd,
 	modules *[]moduleTuple[M],
 	jb func(r io.Reader) (moduleMap[M], moduleMap[D], error),
 ) (moduleMap[M], moduleMap[D], error) {
-	if in.workingDir() != "" {
-		os.Remove(in.workingDir())
-		if _, errO := os.Open(in.workingDir()); errO != nil {
-			err := os.Mkdir(in.workingDir(), os.ModePerm)
+	if in.WorkingDir != "" {
+		os.Remove(in.WorkingDir)
+		if _, errO := os.Open(in.WorkingDir); errO != nil {
+			err := os.Mkdir(in.WorkingDir, os.ModePerm)
 			if err != nil {
 				log.Fatalf(`os.Mkdir %v`, err)
 			}
@@ -93,7 +85,7 @@ func loadAdl[M any, D any](
 	}
 	moduleSet := make(map[string]int)
 	idx := 0
-	filepath.WalkDir(in.workingDir()+"/individual", func(path string, de fs.DirEntry, err error) error {
+	filepath.WalkDir(in.WorkingDir+"/individual", func(path string, de fs.DirEntry, err error) error {
 		if err != nil {
 			log.Printf("error in walkfunc %v", err)
 			return err
@@ -106,7 +98,7 @@ func loadAdl[M any, D any](
 		}
 		return nil
 	})
-	if in.debug() {
+	if in.Debug {
 		for _, m := range *modules {
 			fmt.Fprintf(os.Stderr, "'%s'\n", m.name)
 		}
@@ -120,7 +112,7 @@ func loadAdl[M any, D any](
 		fmt.Fprintf(os.Stderr, "  output '%s'\n", string(out2))
 		return nil, nil, err
 	}
-	fd, err := os.Open(in.workingDir() + "/combined/combined.json")
+	fd, err := os.Open(in.WorkingDir + "/combined/combined.json")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error open combined ast file '%v'\n", err)
 		return nil, nil, err
@@ -133,17 +125,17 @@ func loadAdl[M any, D any](
 		return nil, nil, err
 	}
 	for k := range combinedAst {
-		if in.debug() {
+		if in.Debug {
 			fmt.Fprintf(os.Stderr, "combined %s", k)
 		}
 		if idx, has := moduleSet[k]; has {
-			if in.debug() {
+			if in.Debug {
 				fmt.Fprintf(os.Stderr, " ✅")
 			}
 			m := combinedAst[k]
 			(*modules)[idx].module = &m
 		}
-		if in.debug() {
+		if in.Debug {
 			fmt.Fprintf(os.Stderr, "\n")
 		}
 	}

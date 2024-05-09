@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/adl-lang/goadlc/internal/gen_go"
+	gen_go_v2 "github.com/adl-lang/goadlc/internal/gen_go/v2"
 	"github.com/adl-lang/goadlc/internal/root"
 	"github.com/jpillora/opts"
 )
@@ -14,7 +15,9 @@ func main() {
 	op := opts.New(rflg).
 		Name("goadlc").
 		EmbedGlobalFlagSet().
-		AddCommand(gen_go.NewGenGo().Name("go")).
+		AddCommand(opts.New(&struct{}{}).Name("go").
+			AddCommand(gen_go.NewGenGo().Name("v1")).
+			AddCommand(gen_go_v2.NewGenGoV2().Name("v2"))).
 		Complete().
 		AddCommand(opts.New(&versionCmd{}).Name("version")).
 		Parse()

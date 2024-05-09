@@ -1,0 +1,13 @@
+func Texpr_{{.Name}}() goadl.ATypeExpr[{{.Name}}] {
+	return goadl.ATypeExpr[{{.Name}}] {
+		Value: goadl.TypeExpr{
+			TypeRef: goadl.TypeRef{
+				Branch: goadl.TypeRefBranch_Reference{
+					ModuleName: "{{.ModuleName}}",
+					Name:       "{{.Name}}",
+				},
+			},
+			Parameters: []goadl.TypeExpr{},
+		},
+	}
+}
