@@ -12,9 +12,9 @@ type imports struct {
 }
 
 type importSpec struct {
-	path    string
-	aliased bool
-	name    string
+	Path    string
+	Aliased bool
+	Name    string
 }
 
 func newImports() imports {
@@ -26,15 +26,15 @@ func newImports() imports {
 }
 
 func (spec importSpec) String() string {
-	if !spec.aliased {
-		return strconv.Quote(spec.path)
+	if !spec.Aliased {
+		return strconv.Quote(spec.Path)
 	}
-	return spec.name + " " + strconv.Quote(spec.path)
+	return spec.Name + " " + strconv.Quote(spec.Path)
 }
 
 func (i *imports) byPath(path string) (spec importSpec, ok bool) {
 	for _, spec = range i.specs {
-		if spec.path == path {
+		if spec.Path == path {
 			return spec, true
 		}
 	}
@@ -43,7 +43,7 @@ func (i *imports) byPath(path string) (spec importSpec, ok bool) {
 
 func (i *imports) byName(name string) (spec importSpec, ok bool) {
 	for _, spec = range i.specs {
-		if spec.name == name {
+		if spec.Name == name {
 			return spec, true
 		}
 	}
@@ -52,8 +52,8 @@ func (i *imports) byName(name string) (spec importSpec, ok bool) {
 
 func (i *imports) add(path string) (name string) {
 	spec := i.reserve(path)
-	i.used[spec.path] = true
-	return name
+	i.used[spec.Path] = true
+	return spec.Name
 }
 
 // reserve adds an import spec without marking it as used.
@@ -62,15 +62,18 @@ func (i *imports) reserve(path string) importSpec {
 		return ispec
 	}
 	spec := importSpec{
-		path:    path,
-		name:    pkgFromImport(path),
-		aliased: false,
+		Path:    path,
+		Name:    pkgFromImport(path),
+		Aliased: false,
 	}
-	if _, found := i.byName(spec.name); found {
-		spec.aliased = true
-		for base, n := spec.name, uint64(2); ; n++ {
-			spec.name = base + strconv.FormatUint(n, 10)
-			if _, found = i.byName(spec.name); !found {
+	if _, found := i.byName(spec.Name); found {
+		base := spec.Name
+		spec.Aliased = true
+		n := uint64(1)
+		for {
+			n++
+			spec.Name = base + strconv.FormatUint(n, 10)
+			if _, found = i.byName(spec.Name); !found {
 				break
 			}
 		}

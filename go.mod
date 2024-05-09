@@ -4,9 +4,10 @@ go 1.22.1
 
 require (
 	github.com/adl-lang/goadl_rt v1.0.0
-	github.com/adl-lang/goadl_rt/v2 v2.0.0-alpha.2
+	github.com/adl-lang/goadl_rt/v2 v2.0.0-alpha.4
 	github.com/golang/glog v1.2.1
 	github.com/jpillora/opts v1.2.3
+	golang.org/x/mod v0.17.0
 	golang.org/x/tools v0.20.0
 )
 

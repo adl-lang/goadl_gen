@@ -43,5 +43,5 @@ type headerParams struct {
 
 type importsParams struct {
 	Rt      string
-	Imports []string
+	Imports []importSpec
 }

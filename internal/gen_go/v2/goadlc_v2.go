@@ -7,11 +7,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v2"
 	"github.com/golang/glog"
 	"github.com/jpillora/opts"
+	"golang.org/x/mod/modfile"
 )
 
 func NewGenGoV2() opts.Opts {
@@ -36,19 +38,18 @@ type goadlcV2Cmd struct {
 	MergeAdlext string   `help:"Add the specifed adl file extension to merged on loading"`
 	Debug       bool     `help:"Print extra diagnostic information, especially about files being read/written"`
 	NoGoFmt     bool     `help:"Don't run 'go fmt' on the generated files"`
+	ModulePath  string   `help:"The path of the Go module for the generated code. Overrides the module-path from the '--go-mod-file' flag."`
+	GoModFile   string   `help:"Path of a go.mod file. If the file exists, the module-path is used for generated imports."`
 	// NoOverwrite    bool     `help:"Don't update files that haven't changed"`
 	// Manifest       string   `help:"Write a manifest file recording generated files"`
 	// CombinedOutput string   `help:"The json file to which all adl modules will be written"`
 	Files []string `opts:"mode=arg"`
 }
 
-// func (in *goadlcV2Cmd) workingDir() string  { return in.V1.WorkingDir }
-// func (in *goadlcV2Cmd) searchdir() []string { return in.V1.Searchdir }
-// func (in *goadlcV2Cmd) mergeAdlext() string { return in.V1.MergeAdlext }
-// func (in *goadlcV2Cmd) debug() bool         { return in.V1.Debug }
-// func (in *goadlcV2Cmd) files() []string     { return in.V1.Files }
-
 func (in *goadlcV2Cmd) Run() error {
+	if len(in.Files) == 0 {
+		return fmt.Errorf("no files specified")
+	}
 
 	jb := func(fd io.Reader) (moduleMap[goadl.Module], moduleMap[goadl.Decl], error) {
 		combinedAst := make(moduleMap[goadl.Module])
@@ -72,6 +73,33 @@ func (in *goadlcV2Cmd) Run() error {
 	if err != nil {
 		os.Exit(1)
 	}
+
+	modulePath := ""
+	if in.ModulePath != "" {
+		modulePath = in.ModulePath
+	} else {
+		if in.GoModFile == "" {
+			in.GoModFile = filepath.Join(in.Outputdir, "go.mod")
+			if in.Debug {
+				fmt.Fprintf(os.Stderr, "looking for module-path in go.mod file. go.mod:%s\n", in.GoModFile)
+			}
+		}
+		if gms, err := os.Stat(in.GoModFile); err == nil {
+			if !gms.IsDir() {
+				if modbufm, err := os.ReadFile(in.GoModFile); err == nil {
+					modulePath = modfile.ModulePath(modbufm)
+					if in.Debug {
+						fmt.Fprintf(os.Stderr, "using module-path found in go.mod file. module-path:%s\n", in.GoModFile)
+					}
+				} else {
+					return fmt.Errorf("module-path needed. Not specified in --module-path and couldn't be found in a go.mod file")
+				}
+			}
+		} else {
+			return fmt.Errorf("module-path required. Not specified in --module-path and no go.mod file found in output directory")
+		}
+	}
+
 	// fmt.Printf("cli modules\n")
 	for _, m := range modules {
 		modCodeGen := ModuleCodeGen{}
@@ -87,7 +115,7 @@ func (in *goadlcV2Cmd) Run() error {
 
 		for name, decl := range m.module.Decls {
 			fname := path + "/" + name + ".go"
-			generalDeclV2(fname, path, name, modCodeGen, decl, m.name)
+			generalDeclV2(fname, modulePath, name, modCodeGen, decl, m.name)
 			if !in.NoGoFmt {
 				out, err := exec.Command("go", "fmt", fname).CombinedOutput()
 				if err != nil {
@@ -104,23 +132,33 @@ func (in *goadlcV2Cmd) Run() error {
 }
 
 type generator struct {
-	// fd         *os.File
+	modulePath string
 	moduleName string
 	name       string
 	rr         templateRenderer
 	imports    imports
 }
 
-func generalDeclV2(fname string, path string, name string, modCodeGen ModuleCodeGen, decl goadl.Decl, moduleName string) {
+func generalDeclV2(
+	fname string,
+	modulePath string,
+	name string,
+	modCodeGen ModuleCodeGen,
+	decl goadl.Decl,
+	moduleName string,
+) {
 	header := &generator{
 		rr:         templateRenderer{t: templates},
 		name:       name,
 		moduleName: moduleName,
+		modulePath: modulePath,
 	}
 	body := &generator{
 		rr:         templateRenderer{t: templates},
 		name:       name,
 		moduleName: moduleName,
+		imports:    newImports(),
+		modulePath: modulePath,
 	}
 	goadl.HandleDeclType(
 		decl.Type.Branch,
@@ -146,13 +184,19 @@ func generalDeclV2(fname string, path string, name string, modCodeGen ModuleCode
 	header.rr.Render(headerParams{
 		Pkg: modCodeGen.Directory[len(modCodeGen.Directory)-1],
 	})
+	imports := []importSpec{
+		{Path: "encoding/json"},
+		{Path: "strings"},
+	}
+	for _, spec := range body.imports.specs {
+		if body.imports.used[spec.Path] {
+			imports = append(imports, spec)
+		}
+	}
 	header.rr.Render(importsParams{
 		Rt: "github.com/adl-lang/goadl_rt/v2",
 		// RtAs: "goadl",
-		Imports: []string{
-			"encoding/json",
-			"strings",
-		},
+		Imports: imports,
 	})
 
 	var fd *os.File = nil
@@ -165,7 +209,7 @@ func generalDeclV2(fname string, path string, name string, modCodeGen ModuleCode
 		fd.Close()
 	}()
 	if err != nil {
-		glog.Fatalf("open %s, error: %v", path, err)
+		glog.Fatalf("open %s, error: %v", fname, err)
 	}
 	fd.Write(header.rr.Bytes())
 	fd.Write(body.rr.Bytes())

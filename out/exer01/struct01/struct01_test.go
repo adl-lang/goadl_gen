@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	goadl "github.com/adl-lang/goadl_rt/v2"
-	"github.com/adl-lang/goadl_rt/v2/json"
+	"github.com/adl-lang/goadl_rt/v2/adljson"
 )
 
 func TestXxx(t *testing.T) {
@@ -34,7 +34,7 @@ func TestXxx(t *testing.T) {
 	fmt.Printf("%v\n", f2.IsZero())
 
 	out := &bytes.Buffer{}
-	enc := json.NewEncoder[Struct01](out, Texpr_Struct01(), goadl.RESOLVER)
+	enc := adljson.NewEncoder[Struct01](out, Texpr_Struct01(), goadl.RESOLVER)
 	enc.Encode(x)
 	fmt.Printf("%s\n", string(out.Bytes()))
 }

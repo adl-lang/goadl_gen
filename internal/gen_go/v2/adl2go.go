@@ -16,7 +16,10 @@ type goTypeExpr struct {
 }
 
 func (g goTypeExpr) String() string {
-	return g.Pkg + g.Type + g.Params
+	if g.Pkg != "" {
+		return g.Pkg + "." + g.Type + g.Params
+	}
+	return g.Type + g.Params
 }
 
 func (in *generator) GoType(
@@ -37,8 +40,8 @@ func (in *generator) GoType(
 		func(ref goadl.TypeRefBranch_Reference) (goTypeExpr, error) {
 			packageName := ""
 			if in.moduleName != ref.ModuleName {
-				// packageName = strings.ReplaceAll(ref.ModuleName, ".", "_") + "."
-				packageName = in.imports.add(ref.ModuleName)
+				pkg := in.modulePath + "/" + strings.ReplaceAll(ref.ModuleName, ".", "/")
+				packageName = in.imports.add(pkg)
 				// (*imports) = append((*imports), ref.ModuleName)
 			}
 			goTypeParams := slices.Map(typeExpr.Parameters, func(a goadl.TypeExpr) goTypeExpr {
@@ -48,7 +51,12 @@ func (in *generator) GoType(
 			if len(goTypeParams) > 0 {
 				generic = "[" + strings.Join(slices.Map(goTypeParams, func(a goTypeExpr) string { return a.String() }), ",") + "]"
 			}
-			return goTypeExpr{packageName, ref.Name, generic, false}, nil
+			return goTypeExpr{
+				Pkg:       packageName,
+				Type:      ref.Name,
+				Params:    generic,
+				TypeParam: false,
+			}, nil
 		},
 	)
 	return _type

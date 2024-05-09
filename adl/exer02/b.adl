@@ -1,0 +1,7 @@
+module exer02.b {
+
+struct B {
+    String a;
+};
+
+};
