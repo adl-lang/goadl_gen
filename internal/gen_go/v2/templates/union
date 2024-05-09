@@ -1,0 +1,40 @@
+{{$name := .Name|public -}}
+type {{$name}} struct {
+	Branch {{$name}}Branch
+}
+
+type {{$name}}Branch interface {
+	is{{$name}}Branch()
+}
+
+{{range .Branches -}}
+type {{$name}}Branch_{{.Name}} struct {
+	v {{.Type}} `branch:"{{.Name}}"`
+}
+{{end}}
+
+{{range .Branches -}}
+func ({{$name}}Branch_{{.Name}}) is{{$name}}Branch() {}
+{{end}}
+
+{{range .Branches -}}
+func Make_{{$name}}_{{.Name}}(v {{.Type}}) {{$name}} {
+	return {{$name}}{
+		{{$name}}Branch_{{.Name}}{v},
+	}
+}
+{{end}}
+
+
+func Handle_{{$name}}[T any](
+	in {{$name}}Branch,{{range .Branches}}
+	{{.Name}} func({{$name}}Branch_{{.Name}}) (T, error),{{end}}
+) (T, error) {
+	switch b := in.(type) {
+	{{range .Branches -}}
+	case {{$name}}Branch_{{.Name}}:
+		return {{.Name}}(b)
+	{{end}}
+	}
+	panic("code gen error unhandled branch in : {{$name}}")
+}

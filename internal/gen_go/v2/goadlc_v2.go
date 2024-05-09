@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v2"
+	"github.com/adl-lang/goadlc/internal/fn/slices"
 	"github.com/golang/glog"
 	"github.com/jpillora/opts"
 	"golang.org/x/mod/modfile"
@@ -160,7 +161,7 @@ func generalDeclV2(
 		imports:    newImports(),
 		modulePath: modulePath,
 	}
-	goadl.HandleDeclType(
+	goadl.HandleE_DeclType[any](
 		decl.Type.Branch,
 		body.generateStruct,
 		body.generateUnion,
@@ -215,15 +216,6 @@ func generalDeclV2(
 	fd.Write(body.rr.Bytes())
 }
 
-type scopedDeclParams struct {
-	G          *generator
-	ModuleName string
-	Name       string
-	Decl       goadl.Decl
-}
-
-type texprmonoParams scopedDeclParams
-
 func (*generator) JsonEncode(val any) string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
@@ -233,126 +225,122 @@ func (*generator) JsonEncode(val any) string {
 }
 
 func (in *generator) generateStruct(s goadl.DeclTypeBranch_Struct_) (interface{}, error) {
-	//	s.TypeParams
 	fmt.Fprintf(&in.rr.buf, "type %s struct {\n", in.name)
 	for _, fld := range s.Fields {
 		goType := in.GoType(fld.TypeExpr)
 		goFldName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
 		fmt.Fprintf(&in.rr.buf, "    %[1]s %[2]s\n", goFldName, goType)
-
-		// goadl.HandleTypeRef(
-		// 	fld.TypeExpr.TypeRef.Branch,
-		// 	func(primitive goadl.TypeRefBranch_Primitive) (interface{}, error) {
-		// 		in.generateStructPrimitiveField(primitive, fld)
-		// 		return nil, nil
-		// 	},
-		// 	func(typeParam goadl.TypeRefBranch_TypeParam) (interface{}, error) {
-		// 		fmt.Fprintf(&in.rr.buf, "	/* typeParam not implemented %s */\n", typeParam)
-		// 		return nil, nil
-		// 	},
-		// 	func(reference goadl.TypeRefBranch_Reference) (interface{}, error) {
-		// 		fmt.Fprintf(&in.rr.buf, "	/* reference not implemented %s.%s */\n", reference.ModuleName, reference.Name)
-		// 		return nil, nil
-		// 	},
-		// )
 	}
-
 	fmt.Fprintf(&in.rr.buf, "}\n")
 	return nil, nil
 }
-
-func (in *generator) generateStructPrimitiveField(primitive goadl.TypeRefBranch_Primitive, fld goadl.Field) (interface{}, error) {
-	if _type, ex := goadl.PrimitiveMap[primitive]; ex {
-		in.rr.Render(structPrimParams{
-			G:              in,
-			Name:           fld.Name,
-			Type:           _type,
-			SerializedName: fld.SerializedName,
-		})
-		return nil, nil
-	}
-	// te := fld.TypeExpr.Parameters[0]
-	switch primitive {
-	case "Vector":
-		in.rr.Render(structFieldVectorParams{
-			G:              in,
-			Name:           fld.Name,
-			Type:           "x",
-			SerializedName: fld.SerializedName,
-		})
-	case "StringMap":
-		in.rr.Render(structFieldStringMapParams{
-			G:              in,
-			Name:           fld.Name,
-			Type:           "y",
-			SerializedName: fld.SerializedName,
-		})
-	case "Nullable":
-		in.rr.Render(structFieldNullableParams{
-			G:              in,
-			Name:           fld.Name,
-			Type:           "z",
-			SerializedName: fld.SerializedName,
-		})
-	}
-	return nil, nil
-}
-
-type structPrimParams struct {
-	G              *generator
-	Name           string
-	SerializedName string
-	Type           string
-}
-
-type structFieldVectorParams structPrimParams
-type structFieldStringMapParams structPrimParams
-type structFieldNullableParams structPrimParams
 
 func (in *generator) ToTitle(s string) string {
 	return strings.ToTitle(s)
 }
 
 func (in *generator) generateUnion(u goadl.DeclTypeBranch_Union_) (interface{}, error) {
-	fmt.Fprintf(&in.rr.buf, "	/* Union not implemented */\n")
-	if len(u.TypeParams) > 0 {
-		fmt.Fprintf(&in.rr.buf, "	/* Union TypeParams not implemented %v*/\n", u.TypeParams)
+	branches := slices.Map[goadl.Field, unionBranchParams](u.Fields, func(f goadl.Field) unionBranchParams {
+		return unionBranchParams{
+			Name: f.Name,
+			Type: in.GoType(f.TypeExpr),
+		}
+	})
+	err := in.rr.Render(unionParams{
+		G:        in,
+		Name:     in.name,
+		Branches: branches,
+	})
+	if err != nil {
+		glog.Fatalf("%v", err)
 	}
-	fmt.Fprintf(&in.rr.buf, "type %s struct {\n", in.name)
-	for _, fld := range u.Fields {
-		goadl.HandleTypeRef(
-			fld.TypeExpr.TypeRef.Branch,
-			func(primitive goadl.TypeRefBranch_Primitive) (interface{}, error) {
-				goFldName := strings.ToTitle(fld.Name)
-				if fld.Default.Just != nil {
-					fmt.Fprintf(&in.rr.buf, "	/* default todo %v*/\n", fld.Default.Just)
-				}
-				_type := goadl.PrimitiveMap[primitive]
-				fmt.Fprintf(&in.rr.buf, "	%[2]s *%[3]s `json:\"%[1]s\"`\n", fld.Name, goFldName, _type)
-				return nil, nil
-			},
-			func(typeParam goadl.TypeRefBranch_TypeParam) (interface{}, error) {
-				fmt.Fprintf(&in.rr.buf, "	/* typeParam not implemented %s */\n", typeParam)
-				return nil, nil
-			},
-			func(reference goadl.TypeRefBranch_Reference) (interface{}, error) {
-				fmt.Fprintf(&in.rr.buf, "	/* reference not implemented %s.%s */\n", reference.ModuleName, reference.Name)
-				return nil, nil
-			},
-		)
-	}
-	fmt.Fprintf(&in.rr.buf, "}\n")
-	fmt.Fprintf(&in.rr.buf, `func init() {
-goadl.RESOLVER.Register(
-goadl.ScopedName{
-	ModuleName: "%[1]s",
-	Name:       "%[2]s",
-},
-func() interface{} {
-	return &%[2]s{}
-},
-)
-}`, in.moduleName, in.name)
+	// 	if len(u.TypeParams) > 0 {
+	// 		fmt.Fprintf(&in.rr.buf, "	/* Union TypeParams not implemented %v*/\n", u.TypeParams)
+	// 	}
+	// 	typeName := strings.ToUpper(in.name[:1]) + in.name[1:]
+	// 	fmt.Fprintf(&in.rr.buf, "type %s interface {\n", typeName)
+	// 	fmt.Fprintf(&in.rr.buf, "   Branch() %sBranch\n", typeName)
+	// 	fmt.Fprintf(&in.rr.buf, "}\n")
+	// 	fmt.Fprintf(&in.rr.buf, "\n")
+
+	// 	implName := GoEscape(strings.ToLower(in.name[:1]) + in.name[1:])
+	// 	fmt.Fprintf(&in.rr.buf, "type %s map[string]interface{}\n", implName)
+	// 	fmt.Fprintf(&in.rr.buf, "\n")
+
+	// 	fmt.Fprintf(&in.rr.buf, "func Cast_%[1]s(v interface{}) %[1]s {\n", in.name)
+	// 	fmt.Fprintf(&in.rr.buf, "    obj := %s(v.(map[string]interface{}))\n", implName)
+	// 	fmt.Fprintf(&in.rr.buf, "    return &obj\n")
+	// 	fmt.Fprintf(&in.rr.buf, "}\n")
+	// 	fmt.Fprintf(&in.rr.buf, "\n")
+
+	// 	fmt.Fprintf(&in.rr.buf, "type %sBranch interface {\n", typeName)
+	// 	fmt.Fprintf(&in.rr.buf, "   is%sBranch()\n", typeName)
+	// 	fmt.Fprintf(&in.rr.buf, "}\n")
+	// 	fmt.Fprintf(&in.rr.buf, "\n")
+
+	// 	for _, fld := range u.Fields {
+	// 		fieldTypeName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
+	// 		fmt.Fprintf(&in.rr.buf, "type %[1]s_%[2]s struct {\n", typeName, fieldTypeName)
+	// 		gotype := in.GoType(fld.TypeExpr)
+	// 		if !gotype.TypeParam {
+	// 			fmt.Fprintf(&in.rr.buf, "    %s\n", gotype)
+	// 		} else {
+	// 			fmt.Fprintf(&in.rr.buf, "    %s any\n", gotype)
+	// 		}
+	// 		fmt.Fprintf(&in.rr.buf, "}\n")
+	// 		fmt.Fprintf(&in.rr.buf, "\n")
+	// 	}
+	// 	fmt.Fprintf(&in.rr.buf, "\n")
+
+	// 	for _, fld := range u.Fields {
+	// 		fieldTypeName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
+	// 		fmt.Fprintf(&in.rr.buf, "func (%[1]s_%[2]s) is%[1]sBranch() {}\n", typeName, fieldTypeName)
+	// 	}
+	// 	fmt.Fprintf(&in.rr.buf, "\n")
+
+	// 	fmt.Fprintf(&in.rr.buf, "func (obj *%s) Branch() %sBranch {\n", implName, typeName)
+	// 	fmt.Fprintf(&in.rr.buf, "for k, v := range *obj {\n")
+	// 	fmt.Fprintf(&in.rr.buf, "    switch k {\n")
+	// 	for _, fld := range u.Fields {
+	// 		fmt.Fprintf(&in.rr.buf, "    case \"%s\":\n", fld.Name)
+	// 		goadl.HandleTypeRef(
+	// 			fld.TypeExpr.TypeRef.Branch,
+	// 			func(primitive goadl.TypeRefBranch_Primitive) (interface{}, error) {
+	// 				goFldName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
+	// 				_type := in.PrimitiveMap(string(primitive), fld.TypeExpr.Parameters)
+	// 				fmt.Fprintf(&in.rr.buf, "        return %[1]s_%[2]s{v.(%[3]s)}\n", typeName, goFldName, _type)
+	// 				return nil, nil
+	// 			},
+	// 			func(typeParam goadl.TypeRefBranch_TypeParam) (interface{}, error) {
+	// 				fieldTypeName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
+	// 				fmt.Fprintf(&in.rr.buf, "        return %[1]s_%[2]s{v}\n", typeName, fieldTypeName)
+	// 				return nil, nil
+	// 			},
+	// 			func(ref goadl.TypeRefBranch_Reference) (interface{}, error) {
+	// 				fieldTypeName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
+	// 				fmt.Fprintf(&in.rr.buf, "        return %[1]s_%[2]s {\n", typeName, fieldTypeName)
+
+	// 				if in.moduleName == ref.ModuleName {
+	// 					fmt.Fprintf(&in.rr.buf, "            Cast_%s(v),\n", ref.Name)
+	// 					fmt.Fprintf(&in.rr.buf, "        }\n")
+	// 					return nil, nil
+	// 				}
+	// 				// in.imports = append(in.imports, ref.ModuleName)
+	// 				fmt.Fprintf(&in.rr.buf, "            %sCast_%s(v),\n", strings.ReplaceAll(ref.ModuleName, ".", "_")+".", ref.Name)
+	// 				fmt.Fprintf(&in.rr.buf, "        }\n")
+	// 				return nil, nil
+	// 			},
+	// 		)
+	// 	}
+	// 	fmt.Fprintf(&in.rr.buf, `    default:
+	//         panic("unknown branch '" + k + "'")
+	// 	}
+	// }
+	// panic("empty map")
+	// }
+
+	// `)
+	// 	fmt.Fprintf(&in.rr.buf, "	*/ \n")
 	return nil, nil
 }
 

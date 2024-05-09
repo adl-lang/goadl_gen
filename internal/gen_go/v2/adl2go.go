@@ -28,16 +28,16 @@ func (in *generator) GoType(
 	// declMap map[string]goadl.Decl,
 	// imports *[]string,
 ) goTypeExpr {
-	_type, _ := goadl.HandleTypeRef(
+	_type := goadl.Handle_TypeRef(
 		typeExpr.TypeRef.Branch,
-		func(primitive goadl.TypeRefBranch_Primitive) (goTypeExpr, error) {
+		func(primitive goadl.TypeRefBranch_Primitive) goTypeExpr {
 			_type := in.PrimitiveMap(string(primitive), typeExpr.Parameters)
-			return goTypeExpr{"", _type, "", false}, nil
+			return goTypeExpr{"", _type, "", false}
 		},
-		func(typeParam goadl.TypeRefBranch_TypeParam) (goTypeExpr, error) {
-			return goTypeExpr{"", string(typeParam), "", true}, nil
+		func(typeParam goadl.TypeRefBranch_TypeParam) goTypeExpr {
+			return goTypeExpr{"", string(typeParam), "", true}
 		},
-		func(ref goadl.TypeRefBranch_Reference) (goTypeExpr, error) {
+		func(ref goadl.TypeRefBranch_Reference) goTypeExpr {
 			packageName := ""
 			if in.moduleName != ref.ModuleName {
 				pkg := in.modulePath + "/" + strings.ReplaceAll(ref.ModuleName, ".", "/")
@@ -56,7 +56,7 @@ func (in *generator) GoType(
 				Type:      ref.Name,
 				Params:    generic,
 				TypeParam: false,
-			}, nil
+			}
 		},
 	)
 	return _type

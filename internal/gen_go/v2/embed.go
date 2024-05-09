@@ -4,14 +4,28 @@ import (
 	"bytes"
 	"embed"
 	"reflect"
+	"strings"
 	"text/template"
+
+	goadl "github.com/adl-lang/goadl_rt/v2"
 )
 
 var (
 	//go:embed templates/*
 	templateFS embed.FS
 
-	templates = template.Must(template.New("").Funcs(template.FuncMap{}).ParseFS(templateFS, "templates/*"))
+	templates = template.Must(
+		template.
+			New("").
+			Funcs(template.FuncMap{
+				"public": func(s string) string {
+					if len(s) == 0 {
+						return ""
+					}
+					return strings.ToUpper(s[:1]) + s[1:]
+				},
+			}).
+			ParseFS(templateFS, "templates/*"))
 )
 
 type templateRenderer struct {
@@ -37,6 +51,15 @@ func (tr *templateRenderer) Bytes() []byte {
 	return tr.buf.Bytes()
 }
 
+type scopedDeclParams struct {
+	G          *generator
+	ModuleName string
+	Name       string
+	Decl       goadl.Decl
+}
+
+type texprmonoParams scopedDeclParams
+
 type headerParams struct {
 	Pkg string
 }
@@ -44,4 +67,15 @@ type headerParams struct {
 type importsParams struct {
 	Rt      string
 	Imports []importSpec
+}
+
+type unionParams struct {
+	G        *generator
+	Name     string
+	Branches []unionBranchParams
+}
+
+type unionBranchParams struct {
+	Name string
+	Type goTypeExpr
 }
