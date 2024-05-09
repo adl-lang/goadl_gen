@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/adl-lang/goadl_rt/v2 v2.0.0-alpha.2 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-multierror v1.0.0 // indirect
 	github.com/posener/complete v1.2.2-0.20190308074557-af07aa5181b3 // indirect
