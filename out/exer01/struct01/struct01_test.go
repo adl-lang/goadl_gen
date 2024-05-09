@@ -22,6 +22,9 @@ func TestXxx(t *testing.T) {
 		E: []string{"a", "b", "c"},
 		F: map[string][]string{"a": {"z"}, "b": {"x"}, "c": {"y"}},
 		I: &a,
+		J: B{
+			A: "sfd",
+		},
 	}
 
 	v := reflect.ValueOf(x)

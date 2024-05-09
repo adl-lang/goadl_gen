@@ -10,9 +10,12 @@ struct Struct01 {
     StringMap<StringMap<String>> g; // map[string]map[string]string
     StringMap<StringMap<Nullable<String>>> h; // map[string][]*string
     Nullable<String> i;
+    B j;
 };
 
-
+struct B {
+    String a;
+};
 
 
 };
