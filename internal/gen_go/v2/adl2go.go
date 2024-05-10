@@ -182,7 +182,7 @@ var goKeywords = map[string]string{
 	"var":         "var_",
 }
 
-func GoEscape(n string) string {
+func goEscape(n string) string {
 	if g, h := goKeywords[n]; h {
 		return g
 	}

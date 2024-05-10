@@ -3,6 +3,8 @@ package gen_go_v2
 import (
 	"bytes"
 	"embed"
+	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"text/template"
@@ -34,12 +36,21 @@ type templateRenderer struct {
 }
 
 // Render calls ExecuteTemplate to render to its buffer.
-func (tr *templateRenderer) Render(params any) error {
+func (tr *templateRenderer) Render(params any) {
 	// Derive the template name from the name of the underlying type of
 	// params:
 	typeName := reflect.TypeOf(params).Name()
 	name := typeName[:len(typeName)-len("Params")]
-	return tr.t.ExecuteTemplate(&tr.buf, name, params)
+	err := tr.t.ExecuteTemplate(&tr.buf, name, params)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, `Error executing template -- EXITING.
+template: %s
+data: %+#v
+error: %v
+`, name, params, err)
+		os.Exit(1)
+	}
+	// return nil
 }
 
 func (tr *templateRenderer) RenderTemplate(name string, params any) error {
@@ -55,6 +66,7 @@ type scopedDeclParams struct {
 	G          *generator
 	ModuleName string
 	Name       string
+	TypeParams typeParam
 	Decl       goadl.Decl
 }
 
@@ -69,13 +81,22 @@ type importsParams struct {
 	Imports []importSpec
 }
 
+type structParams struct {
+	G          *generator
+	Name       string
+	TypeParams typeParam
+	Fields     []unionBranchParams
+}
+
 type unionParams struct {
-	G        *generator
-	Name     string
-	Branches []unionBranchParams
+	G          *generator
+	Name       string
+	TypeParams typeParam
+	Branches   []unionBranchParams
 }
 
 type unionBranchParams struct {
-	Name string
-	Type goTypeExpr
+	Name       string
+	Type       goTypeExpr
+	TypeParams typeParam
 }

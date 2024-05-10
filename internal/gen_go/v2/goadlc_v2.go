@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v2"
@@ -70,7 +71,7 @@ func (in *goadlcV2Cmd) Run() error {
 	modules := []moduleTuple[goadl.Module]{}
 	combinedAst, declMap, err := loadAdl(in, &modules, jb)
 	_ = combinedAst
-	_ = declMap
+	// _ = declMap
 	if err != nil {
 		os.Exit(1)
 	}
@@ -101,7 +102,6 @@ func (in *goadlcV2Cmd) Run() error {
 		}
 	}
 
-	// fmt.Printf("cli modules\n")
 	for _, m := range modules {
 		modCodeGen := ModuleCodeGen{}
 		modCodeGen.Directory = strings.Split(m.name, ".")
@@ -112,11 +112,9 @@ func (in *goadlcV2Cmd) Run() error {
 				glog.Fatalf("mkdir -p %s, error: %v", path, err)
 			}
 		}
-		// fmt.Printf("  annotation %v\n", m.module.Annotations)
-
 		for name, decl := range m.module.Decls {
 			fname := path + "/" + name + ".go"
-			generalDeclV2(fname, modulePath, name, modCodeGen, decl, m.name)
+			generalDeclV2(declMap, fname, modulePath, name, modCodeGen, decl, m.name)
 			if !in.NoGoFmt {
 				out, err := exec.Command("go", "fmt", fname).CombinedOutput()
 				if err != nil {
@@ -125,14 +123,11 @@ func (in *goadlcV2Cmd) Run() error {
 			}
 		}
 	}
-	// fmt.Printf("all modules\n")
-	// for k := range allModules {
-	// 	fmt.Printf(" %s\n", k)
-	// }
 	return nil
 }
 
 type generator struct {
+	declMap    moduleMap[goadl.Decl]
 	modulePath string
 	moduleName string
 	name       string
@@ -141,6 +136,7 @@ type generator struct {
 }
 
 func generalDeclV2(
+	declMap moduleMap[goadl.Decl],
 	fname string,
 	modulePath string,
 	name string,
@@ -149,14 +145,16 @@ func generalDeclV2(
 	moduleName string,
 ) {
 	header := &generator{
+		declMap:    declMap,
 		rr:         templateRenderer{t: templates},
-		name:       name,
+		name:       goEscape(name),
 		moduleName: moduleName,
 		modulePath: modulePath,
 	}
 	body := &generator{
+		declMap:    declMap,
 		rr:         templateRenderer{t: templates},
-		name:       name,
+		name:       goEscape(name),
 		moduleName: moduleName,
 		imports:    newImports(),
 		modulePath: modulePath,
@@ -172,13 +170,14 @@ func generalDeclV2(
 	body.rr.Render(texprmonoParams{
 		G:          body,
 		ModuleName: moduleName,
-		Name:       name,
+		Name:       goEscape(name),
+		TypeParams: getTypeParams(decl),
 		Decl:       decl,
 	})
 	body.rr.Render(scopedDeclParams{
 		G:          body,
 		ModuleName: moduleName,
-		Name:       name,
+		Name:       goEscape(name),
 		Decl:       decl,
 	})
 
@@ -216,6 +215,76 @@ func generalDeclV2(
 	fd.Write(body.rr.Bytes())
 }
 
+func getTypeParams(decl goadl.Decl) typeParam {
+	return goadl.HandleP_DeclType[typeParam](
+		decl.Type.Branch,
+		func(struct_ goadl.Struct) typeParam { return typeParam{struct_.TypeParams, false} },
+		func(union_ goadl.Union) typeParam { return typeParam{union_.TypeParams, false} },
+		func(type_ goadl.TypeDef) typeParam { return typeParam{type_.TypeParams, false} },
+		func(newtype_ goadl.NewType) typeParam { return typeParam{newtype_.TypeParams, false} },
+	)
+}
+
+type typeParam struct {
+	ps    []string
+	added bool
+}
+
+func (tp typeParam) AddParam(newp string) typeParam {
+	psMap := make(map[string]bool)
+	tp0 := make([]string, len(tp.ps)+1)
+	for i, p := range tp.ps {
+		tp0[i] = p
+		psMap[p] = true
+	}
+
+	tp0[len(tp.ps)] = newp
+	if psMap[tp0[len(tp.ps)]] {
+		n := uint64(1)
+		for {
+			n++
+			tp0[len(tp.ps)] = newp + strconv.FormatUint(n, 10)
+			if !psMap[tp0[len(tp.ps)]] {
+				break
+			}
+		}
+	}
+	return typeParam{tp0, true}
+}
+func (tp typeParam) Has() bool {
+	return (!tp.added && len(tp.ps) != 0) || len(tp.ps) != 1
+}
+func (tp typeParam) Last() string {
+	if len(tp.ps) == 0 {
+		return ""
+	}
+	return tp.ps[len(tp.ps)-1]
+}
+func (tp typeParam) LSide() string {
+	if len(tp.ps) == 0 {
+		return ""
+	}
+	return "[" + strings.Join(slices.Map(tp.ps, func(e string) string { return e + " any" }), ", ") + "]"
+}
+func (tp typeParam) RSide() string {
+	if len(tp.ps) == 0 {
+		return ""
+	}
+	return "[" + strings.Join(tp.ps, ",") + "]"
+}
+func (tp typeParam) TexprArgs() string {
+	if len(tp.ps) == 0 {
+		return ""
+	}
+	return strings.Join(slices.Map(tp.ps, func(e string) string { return fmt.Sprintf("%s goadl.ATypeExpr[%s]", strings.ToLower(e), e) }), ", ")
+}
+func (tp typeParam) TexprValues() string {
+	if len(tp.ps) == 0 {
+		return ""
+	}
+	return strings.Join(slices.Map(tp.ps, func(e string) string { return fmt.Sprintf("%s.Value", strings.ToLower(e)) }), ", ")
+}
+
 func (*generator) JsonEncode(val any) string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
@@ -225,13 +294,17 @@ func (*generator) JsonEncode(val any) string {
 }
 
 func (in *generator) generateStruct(s goadl.DeclTypeBranch_Struct_) (interface{}, error) {
-	fmt.Fprintf(&in.rr.buf, "type %s struct {\n", in.name)
-	for _, fld := range s.Fields {
-		goType := in.GoType(fld.TypeExpr)
-		goFldName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
-		fmt.Fprintf(&in.rr.buf, "    %[1]s %[2]s\n", goFldName, goType)
-	}
-	fmt.Fprintf(&in.rr.buf, "}\n")
+	in.rr.Render(structParams{
+		G:          in,
+		Name:       goEscape(in.name),
+		TypeParams: typeParam{s.TypeParams, false},
+		Fields: slices.Map[goadl.Field, unionBranchParams](s.Fields, func(f goadl.Field) unionBranchParams {
+			return unionBranchParams{
+				Name: goEscape(f.Name),
+				Type: in.GoType(f.TypeExpr),
+			}
+		}),
+	})
 	return nil, nil
 }
 
@@ -240,117 +313,46 @@ func (in *generator) ToTitle(s string) string {
 }
 
 func (in *generator) generateUnion(u goadl.DeclTypeBranch_Union_) (interface{}, error) {
-	branches := slices.Map[goadl.Field, unionBranchParams](u.Fields, func(f goadl.Field) unionBranchParams {
-		return unionBranchParams{
-			Name: f.Name,
-			Type: in.GoType(f.TypeExpr),
-		}
+	in.rr.Render(unionParams{
+		G:          in,
+		Name:       goEscape(in.name),
+		TypeParams: typeParam{u.TypeParams, false},
+		Branches: slices.Map[goadl.Field, unionBranchParams](u.Fields, func(f goadl.Field) unionBranchParams {
+			return unionBranchParams{
+				Name:       goEscape(f.Name),
+				TypeParams: typeParam{u.TypeParams, false},
+				Type:       in.GoType(f.TypeExpr),
+			}
+		}),
 	})
-	err := in.rr.Render(unionParams{
-		G:        in,
-		Name:     in.name,
-		Branches: branches,
-	})
-	if err != nil {
-		glog.Fatalf("%v", err)
-	}
-	// 	if len(u.TypeParams) > 0 {
-	// 		fmt.Fprintf(&in.rr.buf, "	/* Union TypeParams not implemented %v*/\n", u.TypeParams)
-	// 	}
-	// 	typeName := strings.ToUpper(in.name[:1]) + in.name[1:]
-	// 	fmt.Fprintf(&in.rr.buf, "type %s interface {\n", typeName)
-	// 	fmt.Fprintf(&in.rr.buf, "   Branch() %sBranch\n", typeName)
-	// 	fmt.Fprintf(&in.rr.buf, "}\n")
-	// 	fmt.Fprintf(&in.rr.buf, "\n")
-
-	// 	implName := GoEscape(strings.ToLower(in.name[:1]) + in.name[1:])
-	// 	fmt.Fprintf(&in.rr.buf, "type %s map[string]interface{}\n", implName)
-	// 	fmt.Fprintf(&in.rr.buf, "\n")
-
-	// 	fmt.Fprintf(&in.rr.buf, "func Cast_%[1]s(v interface{}) %[1]s {\n", in.name)
-	// 	fmt.Fprintf(&in.rr.buf, "    obj := %s(v.(map[string]interface{}))\n", implName)
-	// 	fmt.Fprintf(&in.rr.buf, "    return &obj\n")
-	// 	fmt.Fprintf(&in.rr.buf, "}\n")
-	// 	fmt.Fprintf(&in.rr.buf, "\n")
-
-	// 	fmt.Fprintf(&in.rr.buf, "type %sBranch interface {\n", typeName)
-	// 	fmt.Fprintf(&in.rr.buf, "   is%sBranch()\n", typeName)
-	// 	fmt.Fprintf(&in.rr.buf, "}\n")
-	// 	fmt.Fprintf(&in.rr.buf, "\n")
-
-	// 	for _, fld := range u.Fields {
-	// 		fieldTypeName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
-	// 		fmt.Fprintf(&in.rr.buf, "type %[1]s_%[2]s struct {\n", typeName, fieldTypeName)
-	// 		gotype := in.GoType(fld.TypeExpr)
-	// 		if !gotype.TypeParam {
-	// 			fmt.Fprintf(&in.rr.buf, "    %s\n", gotype)
-	// 		} else {
-	// 			fmt.Fprintf(&in.rr.buf, "    %s any\n", gotype)
-	// 		}
-	// 		fmt.Fprintf(&in.rr.buf, "}\n")
-	// 		fmt.Fprintf(&in.rr.buf, "\n")
-	// 	}
-	// 	fmt.Fprintf(&in.rr.buf, "\n")
-
-	// 	for _, fld := range u.Fields {
-	// 		fieldTypeName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
-	// 		fmt.Fprintf(&in.rr.buf, "func (%[1]s_%[2]s) is%[1]sBranch() {}\n", typeName, fieldTypeName)
-	// 	}
-	// 	fmt.Fprintf(&in.rr.buf, "\n")
-
-	// 	fmt.Fprintf(&in.rr.buf, "func (obj *%s) Branch() %sBranch {\n", implName, typeName)
-	// 	fmt.Fprintf(&in.rr.buf, "for k, v := range *obj {\n")
-	// 	fmt.Fprintf(&in.rr.buf, "    switch k {\n")
-	// 	for _, fld := range u.Fields {
-	// 		fmt.Fprintf(&in.rr.buf, "    case \"%s\":\n", fld.Name)
-	// 		goadl.HandleTypeRef(
-	// 			fld.TypeExpr.TypeRef.Branch,
-	// 			func(primitive goadl.TypeRefBranch_Primitive) (interface{}, error) {
-	// 				goFldName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
-	// 				_type := in.PrimitiveMap(string(primitive), fld.TypeExpr.Parameters)
-	// 				fmt.Fprintf(&in.rr.buf, "        return %[1]s_%[2]s{v.(%[3]s)}\n", typeName, goFldName, _type)
-	// 				return nil, nil
-	// 			},
-	// 			func(typeParam goadl.TypeRefBranch_TypeParam) (interface{}, error) {
-	// 				fieldTypeName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
-	// 				fmt.Fprintf(&in.rr.buf, "        return %[1]s_%[2]s{v}\n", typeName, fieldTypeName)
-	// 				return nil, nil
-	// 			},
-	// 			func(ref goadl.TypeRefBranch_Reference) (interface{}, error) {
-	// 				fieldTypeName := strings.ToUpper(fld.Name[:1]) + fld.Name[1:]
-	// 				fmt.Fprintf(&in.rr.buf, "        return %[1]s_%[2]s {\n", typeName, fieldTypeName)
-
-	// 				if in.moduleName == ref.ModuleName {
-	// 					fmt.Fprintf(&in.rr.buf, "            Cast_%s(v),\n", ref.Name)
-	// 					fmt.Fprintf(&in.rr.buf, "        }\n")
-	// 					return nil, nil
-	// 				}
-	// 				// in.imports = append(in.imports, ref.ModuleName)
-	// 				fmt.Fprintf(&in.rr.buf, "            %sCast_%s(v),\n", strings.ReplaceAll(ref.ModuleName, ".", "_")+".", ref.Name)
-	// 				fmt.Fprintf(&in.rr.buf, "        }\n")
-	// 				return nil, nil
-	// 			},
-	// 		)
-	// 	}
-	// 	fmt.Fprintf(&in.rr.buf, `    default:
-	//         panic("unknown branch '" + k + "'")
-	// 	}
-	// }
-	// panic("empty map")
-	// }
-
-	// `)
-	// 	fmt.Fprintf(&in.rr.buf, "	*/ \n")
 	return nil, nil
 }
 
 func (in *generator) generateTypeAlias(td goadl.DeclTypeBranch_Type_) (interface{}, error) {
-	fmt.Fprintf(&in.rr.buf, "	/* TypeDef not implemented */\n")
+	in.rr.Render(typeAliasParams{
+		G:          in,
+		Name:       goEscape(in.name),
+		TypeParams: typeParam{td.TypeParams, false},
+		RType:      in.GoType(td.TypeExpr),
+	})
 	return nil, nil
 }
 
+type typeAliasParams struct {
+	G          *generator
+	Name       string
+	TypeParams typeParam
+	RType      goTypeExpr
+}
+type newTypeParams typeAliasParams
+
 func (in *generator) generateNewType(nt goadl.DeclTypeBranch_Newtype_) (interface{}, error) {
-	fmt.Fprintf(&in.rr.buf, "	/* NewType not implemented */\n")
+	in.rr.Render(newTypeParams{
+		G:          in,
+		Name:       goEscape(in.name),
+		TypeParams: typeParam{nt.TypeParams, false},
+		RType:      in.GoType(nt.TypeExpr),
+	})
 	return nil, nil
 }
 

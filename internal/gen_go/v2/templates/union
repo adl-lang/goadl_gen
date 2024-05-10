@@ -1,38 +1,38 @@
 {{$name := .Name|public -}}
-type {{$name}} struct {
-	Branch {{$name}}Branch
+type {{$name}}{{.TypeParams.LSide}} struct {
+	Branch {{$name}}Branch{{.TypeParams.RSide}}
 }
 
-type {{$name}}Branch interface {
+type {{$name}}Branch{{.TypeParams.LSide}} interface {
 	is{{$name}}Branch()
 }
 
 {{range .Branches -}}
-type {{$name}}Branch_{{.Name}} struct {
+type {{$name}}Branch_{{.Name}}{{.TypeParams.LSide}} struct {
 	v {{.Type}} `branch:"{{.Name}}"`
 }
 {{end}}
 
 {{range .Branches -}}
-func ({{$name}}Branch_{{.Name}}) is{{$name}}Branch() {}
+func ({{$name}}Branch_{{.Name}}{{.TypeParams.RSide}}) is{{$name}}Branch() {}
 {{end}}
 
 {{range .Branches -}}
-func Make_{{$name}}_{{.Name}}(v {{.Type}}) {{$name}} {
-	return {{$name}}{
-		{{$name}}Branch_{{.Name}}{v},
+func Make_{{$name}}_{{.Name}}{{.TypeParams.LSide}}(v {{.Type}}) {{$name}}{{.TypeParams.RSide}} {
+	return {{$name}}{{.TypeParams.RSide}}{
+		{{$name}}Branch_{{.Name}}{{.TypeParams.RSide}}{v},
 	}
 }
 {{end}}
 
-
-func Handle_{{$name}}[T any](
-	in {{$name}}Branch,{{range .Branches}}
-	{{.Name}} func({{$name}}Branch_{{.Name}}) (T, error),{{end}}
-) (T, error) {
+{{$htp := .TypeParams.AddParam "T"}}
+func Handle_{{$name}}{{$htp.LSide}}(
+	in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}
+	{{.Name}} func({{.Name}} {{$name}}Branch_{{.Name}}{{.TypeParams.RSide}}) ({{$htp.Last}}, error),{{end}}
+) ({{$htp.Last}}, error) {
 	switch b := in.(type) {
 	{{range .Branches -}}
-	case {{$name}}Branch_{{.Name}}:
+	case {{$name}}Branch_{{.Name}}{{.TypeParams.RSide}}:
 		return {{.Name}}(b)
 	{{end}}
 	}
