@@ -9,52 +9,62 @@ import (
 )
 
 type goTypeExpr struct {
-	Pkg       string
-	Type      string
-	Params    string
-	TypeParam bool
+	Pkg        string
+	Type       string
+	TypeParams typeParam
+	TypeParam  bool
 }
 
 func (g goTypeExpr) String() string {
-	if g.Pkg != "" {
-		return g.Pkg + "." + g.Type + g.Params
+	if g.TypeParam {
+		return g.Type
 	}
-	return g.Type + g.Params
+	if g.Pkg != "" {
+		return g.Pkg + "." + g.Type + g.TypeParams.RSide()
+	}
+	return g.Type + g.TypeParams.RSide()
 }
 
 func (in *generator) GoType(
 	typeExpr goadl.TypeExpr,
-	// moduleName string,
-	// declMap map[string]goadl.Decl,
-	// imports *[]string,
 ) goTypeExpr {
 	_type := goadl.Handle_TypeRef(
 		typeExpr.TypeRef.Branch,
 		func(primitive goadl.TypeRefBranch_Primitive) goTypeExpr {
 			_type := in.PrimitiveMap(string(primitive), typeExpr.Parameters)
-			return goTypeExpr{"", _type, "", false}
+			return _type
 		},
-		func(typeParam goadl.TypeRefBranch_TypeParam) goTypeExpr {
-			return goTypeExpr{"", string(typeParam), "", true}
+		func(tp goadl.TypeRefBranch_TypeParam) goTypeExpr {
+			return goTypeExpr{"", string(tp), typeParam{
+				ps: []string{string(tp)},
+				// isTypeParam: true,
+			}, true}
 		},
 		func(ref goadl.TypeRefBranch_Reference) goTypeExpr {
 			packageName := ""
 			if in.moduleName != ref.ModuleName {
-				pkg := in.modulePath + "/" + strings.ReplaceAll(ref.ModuleName, ".", "/")
-				packageName = in.imports.add(pkg)
+				if in.midPath != "" {
+					pkg := in.modulePath + "/" + in.midPath + "/" + strings.ReplaceAll(ref.ModuleName, ".", "/")
+					packageName = in.imports.add(pkg)
+				} else {
+					pkg := in.modulePath + "/" + strings.ReplaceAll(ref.ModuleName, ".", "/")
+					packageName = in.imports.add(pkg)
+				}
 				// (*imports) = append((*imports), ref.ModuleName)
 			}
 			goTypeParams := slices.Map(typeExpr.Parameters, func(a goadl.TypeExpr) goTypeExpr {
 				return in.GoType(a)
 			})
-			generic := ""
-			if len(goTypeParams) > 0 {
-				generic = "[" + strings.Join(slices.Map(goTypeParams, func(a goTypeExpr) string { return a.String() }), ",") + "]"
-			}
+			// generic := ""
+			// if len(goTypeParams) > 0 {
+			// 	generic = "[" + strings.Join(slices.Map(goTypeParams, func(a goTypeExpr) string { return a.String() }), ",") + "]"
+			// }
 			return goTypeExpr{
-				Pkg:       packageName,
-				Type:      ref.Name,
-				Params:    generic,
+				Pkg:  packageName,
+				Type: ref.Name,
+				TypeParams: typeParam{
+					ps: slices.Map(goTypeParams, func(a goTypeExpr) string { return a.String() }),
+				},
 				TypeParam: false,
 			}
 		},
@@ -64,94 +74,25 @@ func (in *generator) GoType(
 
 func (in *generator) PrimitiveMap(
 	p string,
-	// moduleName string,
 	params []goadl.TypeExpr,
-	// declMap map[string]goadl.Decl,
-	// imports *[]string,
-) (_type string) {
+) (_type goTypeExpr) {
 	r, has := primitiveMap[p]
 	if has {
-		return r
+		return goTypeExpr{"", r, typeParam{}, false}
 	}
 	elem := in.GoType(params[0])
-	// rightTypeParams := ""
-	// if len(params[0].Parameters) > 0 {
-	// 	x := slices.Map(params[0].Parameters, func(te goadl.TypeExpr) string {
-	// 		gt := in.GoType(te) //, moduleName, declMap, imports)
-	// 		if gt.TypeParam {
-	// 			return gt.Type
-	// 		}
-	// 		return gt.String()
-	// 	})
-	// 	rightTypeParams = "[" + strings.Join(x, ",") + "]"
-	// }
-
-	if p == "Vector" {
-		return "[]" + elem.String()
-		// prefix = "[]"
-		// _type, _ = goadl.HandleTypeRef[string](
-		// 	params[0].TypeRef.Branch,
-		// 	func(primitive goadl.TypeRefBranch_Primitive) (string, error) {
-		// 		// TODO deal with Vector<Vector/StringMap/Nullable<>>
-		// 		return string(primitive) + "/*--*/" + rightTypeParams, nil
-		// 	},
-		// 	func(typeParam goadl.TypeRefBranch_TypeParam) (string, error) {
-		// 		return string(typeParam), nil
-		// 	},
-		// 	func(ref goadl.TypeRefBranch_Reference) (string, error) {
-		// 		pkg := ""
-		// 		if in.moduleName != ref.ModuleName {
-		// 			pkg = strings.ReplaceAll(ref.ModuleName, ".", "_") + "."
-		// 		}
-		// 		return pkg + ref.Name + rightTypeParams, nil
-		// 	},
-		// )
-		// return
+	switch p {
+	case "Vector":
+		return goTypeExpr{"", "[]" + elem.String(), elem.TypeParams, elem.TypeParam} // "[]" + elem.String(), elem.TypeParams
+	case "StringMap":
+		return goTypeExpr{"", "map[string]" + elem.String(), elem.TypeParams, elem.TypeParam} // "[]" + elem.String(), elem.TypeParams
+		// return "map[string]" + elem.String(), elem.TypeParams
+	case "Nullable":
+		return goTypeExpr{"", "*" + elem.String(), elem.TypeParams, elem.TypeParam} // "[]" + elem.String(), elem.TypeParams
+		// return "*" + elem.String(), elem.TypeParams
 	}
-	if p == "StringMap" {
-		return "map[string]" + elem.String()
-		// prefix = "map[string]"
-		// _type, _ = goadl.HandleTypeRef(
-		// 	params[0].TypeRef.Branch,
-		// 	func(primitive goadl.TypeRefBranch_Primitive) (string, error) {
-		// 		return string(primitive) + rightTypeParams, nil
-		// 	},
-		// 	func(typeParam goadl.TypeRefBranch_TypeParam) (string, error) {
-		// 		return "/* StringMap<typeParam> not implemented */", nil
-		// 	},
-		// 	func(ref goadl.TypeRefBranch_Reference) (string, error) {
-		// 		pkg := ""
-		// 		if in.moduleName != ref.ModuleName {
-		// 			pkg = strings.ReplaceAll(ref.ModuleName, ".", "_") + "."
-		// 		}
-		// 		return pkg + ref.Name + rightTypeParams, nil
-		// 	},
-		// )
-		// return
-	}
-	if p == "Nullable" {
-		return "*" + elem.String()
-		// prefix = "*"
-		// _type, _ = goadl.HandleTypeRef(
-		// 	params[0].TypeRef.Branch,
-		// 	func(primitive goadl.TypeRefBranch_Primitive) (string, error) {
-		// 		return string(primitive) + rightTypeParams, nil
-		// 	},
-		// 	func(typeParam goadl.TypeRefBranch_TypeParam) (string, error) {
-		// 		return "/* Nullable<typeParam> not implemented */", nil
-		// 	},
-		// 	func(ref goadl.TypeRefBranch_Reference) (string, error) {
-		// 		pkg := ""
-		// 		if in.moduleName != ref.ModuleName {
-		// 			pkg = strings.ReplaceAll(ref.ModuleName, ".", "_") + "."
-		// 		}
-		// 		return pkg + ref.Name + rightTypeParams, nil
-		// 	},
-		// )
-		// return
-	}
-	fmt.Printf("!!'%s'\n", p)
-	return ""
+	panic(fmt.Errorf("no such primitive '%s'", p))
+	// return "", typeParam{}
 }
 
 var goKeywords = map[string]string{

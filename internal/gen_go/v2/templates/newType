@@ -1,1 +1,1 @@
-type {{.Name|public}}{{.TypeParams.LSide}} {{.RType}}
+type {{.Name|public}}{{.TypeParams.LSide}} {{.RType.Type}}

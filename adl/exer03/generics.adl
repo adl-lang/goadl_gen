@@ -1,0 +1,15 @@
+module exer03.generics {
+
+struct Abc<A,B> {
+    A a;
+    Vector<B> b;
+    Int64 c;
+};
+
+union Def<A,B> {
+    A a;
+    Vector<B> b;
+    Int64 c;
+};
+
+};

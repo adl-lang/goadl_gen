@@ -8,33 +8,68 @@ type {{$name}}Branch{{.TypeParams.LSide}} interface {
 }
 
 {{range .Branches -}}
-type {{$name}}Branch_{{.Name}}{{.TypeParams.LSide}} struct {
+type {{$name}}Branch_{{.Name}}{{.Type.TypeParams.LSide}} struct {
 	v {{.Type}} `branch:"{{.Name}}"`
 }
 {{end}}
 
 {{range .Branches -}}
-func ({{$name}}Branch_{{.Name}}{{.TypeParams.RSide}}) is{{$name}}Branch() {}
+func ({{$name}}Branch_{{.Name}}{{.Type.TypeParams.RSide}}) is{{$name}}Branch() {}
 {{end}}
 
 {{range .Branches -}}
 func Make_{{$name}}_{{.Name}}{{.TypeParams.LSide}}(v {{.Type}}) {{$name}}{{.TypeParams.RSide}} {
 	return {{$name}}{{.TypeParams.RSide}}{
-		{{$name}}Branch_{{.Name}}{{.TypeParams.RSide}}{v},
+		{{$name}}Branch_{{.Name}}{{.Type.TypeParams.RSide}}{v},
 	}
 }
 {{end}}
 
 {{$htp := .TypeParams.AddParam "T"}}
-func Handle_{{$name}}{{$htp.LSide}}(
-	in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}
-	{{.Name}} func({{.Name}} {{$name}}Branch_{{.Name}}{{.TypeParams.RSide}}) ({{$htp.Last}}, error),{{end}}
+func Handle_Branch_{{$name}}{{$htp.LSide}}(
+	_in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}
+	{{.Name}} func({{.Name}} {{$name}}Branch_{{.Name}}{{.Type.TypeParams.RSide}}) ({{$htp.Last}}, error),{{end}}
 ) ({{$htp.Last}}, error) {
-	switch b := in.(type) {
+	switch _b := _in.(type) {
 	{{range .Branches -}}
-	case {{$name}}Branch_{{.Name}}{{.TypeParams.RSide}}:
-		return {{.Name}}(b)
-	{{end}}
+	case {{$name}}Branch_{{.Name}}{{.Type.TypeParams.RSide}}:
+		return {{.Name}}(_b)
+	{{end}}}
+	panic("code gen error unhandled branch in : {{$name}}")
+}
+
+func Handle_{{$name}}{{$htp.LSide}}(
+	_in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}
+	{{.Name}} func({{.Name}} {{.Type}}) ({{$htp.Last}}),{{end}}
+	_default func() {{$htp.Last}},
+) ({{$htp.Last}}) {
+	switch _b := _in.(type) {
+	{{range .Branches -}}
+	case {{$name}}Branch_{{.Name}}{{.Type.TypeParams.RSide}}:
+		if {{.Name}} != nil {
+			return {{.Name}}(_b.v)
+		}
+	{{end}}}
+	if _default != nil {
+		return _default()
+	}
+	panic("code gen error unhandled branch in : {{$name}}")
+}
+
+func HandleWithErr_{{$name}}{{$htp.LSide}}(
+	_in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}
+	{{.Name}} func({{.Name}} {{.Type}}) ({{$htp.Last}}, error),{{end}}
+	_default func() ({{$htp.Last}}, error),
+) ({{$htp.Last}}, error) {
+	switch _b := _in.(type) {
+	{{range .Branches -}}
+	case {{$name}}Branch_{{.Name}}{{.Type.TypeParams.RSide}}:
+		if {{.Name}} != nil {
+			return {{.Name}}(_b.v)
+		}
+	{{end}}}
+	if _default != nil {
+		return _default()
 	}
 	panic("code gen error unhandled branch in : {{$name}}")
 }
