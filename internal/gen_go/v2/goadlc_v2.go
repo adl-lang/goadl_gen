@@ -244,21 +244,6 @@ func (base *baseGen) generalDeclV2(
 	})
 	header.rr.buf.Write(body.rr.Bytes())
 	return header.rr.Bytes()
-	// var fd *os.File = nil
-	// var err error
-	// fd, err = os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-	// fd.Truncate(0)
-	// fd.Seek(0, 0)
-	// defer func() {
-	// 	fd.Sync()
-	// 	fd.Close()
-	// }()
-	// if err != nil {
-	// 	glog.Fatalf("open %s, error: %v", fname, err)
-	// }
-	// fd.Write(header.rr.Bytes())
-	// fd.Write(body.rr.Bytes())
-
 }
 
 func (*generator) JsonEncode(val any) string {

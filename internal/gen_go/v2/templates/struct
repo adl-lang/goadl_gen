@@ -1,5 +1,5 @@
 type {{.Name|public}}{{.TypeParams.LSide}} struct {
-{{range .Fields}}	{{.Name}} {{.Type}}//{{.TypeParams.RSide}}
+{{range .Fields}}	{{.Name|public}} {{.Type}}
 {{end -}}
 }
 
