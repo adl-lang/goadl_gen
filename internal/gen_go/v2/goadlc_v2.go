@@ -190,6 +190,18 @@ type generator struct {
 	imports imports
 }
 
+type typeMapField goadl.Field
+
+func (f typeMapField) TpArgs() string {
+	if _, ok := f.TypeExpr.TypeRef.Branch.(goadl.TypeRefBranch_TypeParam); ok {
+		return "[any]"
+	}
+	if len(f.TypeExpr.Parameters) == 0 {
+		return ""
+	}
+	return "[any" + strings.Repeat(",any", len(f.TypeExpr.Parameters)-1) + "]"
+}
+
 func (base *baseGen) generalDeclV2(
 	modCodeGen ModuleCodeGen,
 	decl goadl.Decl,
@@ -223,6 +235,26 @@ func (base *baseGen) generalDeclV2(
 		ModuleName: base.moduleName,
 		Name:       goEscape(base.name),
 		Decl:       decl,
+		Fields: goadl.Handle_DeclType(
+			decl.Type.Branch,
+			func(struct_ goadl.Struct) []typeMapField {
+				return []typeMapField{}
+				// struct_.Fields[0].SerializedName
+				// return struct_.Fields
+			},
+			func(union_ goadl.Union) []typeMapField {
+				return slices.Map[goadl.Field, typeMapField](union_.Fields, func(a goadl.Field) typeMapField {
+					return typeMapField(a)
+				})
+			},
+			func(type_ goadl.TypeDef) []typeMapField {
+				return []typeMapField{}
+			},
+			func(newtype_ goadl.NewType) []typeMapField {
+				return []typeMapField{}
+			},
+			nil,
+		),
 	})
 
 	header.rr.Render(headerParams{
@@ -230,6 +262,7 @@ func (base *baseGen) generalDeclV2(
 	})
 	imports := []importSpec{
 		{Path: "encoding/json"},
+		{Path: "reflect"},
 		{Path: "strings"},
 	}
 	for _, spec := range body.imports.specs {

@@ -68,6 +68,7 @@ type scopedDeclParams struct {
 	Name       string
 	TypeParams typeParam
 	Decl       goadl.Decl
+	Fields     []typeMapField
 }
 
 type texprmonoParams scopedDeclParams

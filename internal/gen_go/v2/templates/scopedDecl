@@ -11,9 +11,15 @@ func AST_{{.Name}}() goadl.ScopedDecl {
 	}
 }
 
+{{$name := .Name}}
 func init() {
 	goadl.RESOLVER.Register(
 		goadl.ScopedName{ModuleName: "{{.ModuleName}}", Name: "{{.Name}}"},
-		AST_{{.Name}}(),
+		goadl.ScopedInfo{
+			SD: AST_{{.Name}}(),
+			TypeMap: map[string]reflect.Type{ {{- range .Fields}}
+				"{{.SerializedName}}": reflect.TypeOf({{$name}}Branch_{{.Name}}{{.TpArgs}}{}),{{end}}
+			},
+		},
 	)
 }

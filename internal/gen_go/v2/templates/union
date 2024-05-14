@@ -9,7 +9,7 @@ type {{$name}}Branch{{.TypeParams.LSide}} interface {
 
 {{range .Branches -}}
 type {{$name}}Branch_{{.Name}}{{.Type.TypeParams.LSide}} struct {
-	v {{.Type}} `branch:"{{.Name}}"`
+	V {{.Type}} `branch:"{{.Name}}"`
 }
 {{end}}
 
@@ -47,7 +47,7 @@ func Handle_{{$name}}{{$htp.LSide}}(
 	{{range .Branches -}}
 	case {{$name}}Branch_{{.Name}}{{.Type.TypeParams.RSide}}:
 		if {{.Name}} != nil {
-			return {{.Name}}(_b.v)
+			return {{.Name}}(_b.V)
 		}
 	{{end}}}
 	if _default != nil {
@@ -65,7 +65,7 @@ func HandleWithErr_{{$name}}{{$htp.LSide}}(
 	{{range .Branches -}}
 	case {{$name}}Branch_{{.Name}}{{.Type.TypeParams.RSide}}:
 		if {{.Name}} != nil {
-			return {{.Name}}(_b.v)
+			return {{.Name}}(_b.V)
 		}
 	{{end}}}
 	if _default != nil {

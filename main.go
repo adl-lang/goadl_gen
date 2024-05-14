@@ -17,7 +17,8 @@ func main() {
 		EmbedGlobalFlagSet().
 		AddCommand(opts.New(&struct{}{}).Name("go").
 			AddCommand(gen_go.NewGenGo().Name("v1")).
-			AddCommand(gen_go_v2.NewGenGoV2().Name("v2"))).
+			AddCommand(gen_go_v2.NewGenGoV2().Name("v2")).
+			AddCommand(gen_go_v2.NewGenTypeExprV2().Name("v2_gen_texpr"))).
 		Complete().
 		AddCommand(opts.New(&versionCmd{}).Name("version")).
 		Parse()

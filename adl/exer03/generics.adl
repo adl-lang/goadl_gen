@@ -4,12 +4,14 @@ struct Abc<A,B> {
     A a;
     Vector<B> b;
     Int64 c;
+    Def<A,B> d;
 };
 
 union Def<A,B> {
     A a;
     Vector<B> b;
     Int64 c;
+    Def<A,B> d;
 };
 
 };

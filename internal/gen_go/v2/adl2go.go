@@ -30,17 +30,17 @@ func (in *generator) GoType(
 ) goTypeExpr {
 	_type := goadl.Handle_TypeRef(
 		typeExpr.TypeRef.Branch,
-		func(primitive goadl.TypeRefBranch_Primitive) goTypeExpr {
-			_type := in.PrimitiveMap(string(primitive), typeExpr.Parameters)
+		func(primitive string) goTypeExpr {
+			_type := in.PrimitiveMap(primitive, typeExpr.Parameters)
 			return _type
 		},
-		func(tp goadl.TypeRefBranch_TypeParam) goTypeExpr {
-			return goTypeExpr{"", string(tp), typeParam{
+		func(tp string) goTypeExpr {
+			return goTypeExpr{"", tp, typeParam{
 				ps: []string{string(tp)},
 				// isTypeParam: true,
 			}, true}
 		},
-		func(ref goadl.TypeRefBranch_Reference) goTypeExpr {
+		func(ref goadl.ScopedName) goTypeExpr {
 			packageName := ""
 			if in.moduleName != ref.ModuleName {
 				if in.midPath != "" {
@@ -50,7 +50,6 @@ func (in *generator) GoType(
 					pkg := in.modulePath + "/" + strings.ReplaceAll(ref.ModuleName, ".", "/")
 					packageName = in.imports.add(pkg)
 				}
-				// (*imports) = append((*imports), ref.ModuleName)
 			}
 			goTypeParams := slices.Map(typeExpr.Parameters, func(a goadl.TypeExpr) goTypeExpr {
 				return in.GoType(a)
