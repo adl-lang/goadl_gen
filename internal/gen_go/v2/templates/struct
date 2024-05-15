@@ -1,16 +1,23 @@
-type {{.Name|public}}{{.TypeParams.LSide}} struct {
-{{range .Fields}}	{{.Name|public}} {{.Type}}
+{{$decl := .}}
+{{$name := .Name | public}}
+{{$G := .G}}
+type {{$name}}{{$decl.TypeParams.LSide}} struct {
+{{range .Fields}}	{{.Name|public}} {{$G.GoType .TypeExpr}}
 {{end -}}
 }
 
-func Make_{{.Name|public}}{{.TypeParams.LSide}}(
-{{range .Fields}}{{if not .HasDefault}}	{{.Name|lower}} {{.Type}},
+func Make_{{$name}}{{.TypeParams.LSide}}(
+{{range .Fields}}{{if not .HasDefault}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},
 {{end}}{{end -}}
-) {{.Name|public}}{{.TypeParams.RSide}} {
-	ret := {{.Name|public}}{{.TypeParams.RSide}}{
-{{range .Fields}}{{if not .HasDefault}}		{{.Name|public}}: {{.Name|lower}},
-{{else}}		{{.Name|public}}: {{.Just}},
+) {{$name}}{{.TypeParams.RSide}} {
+	ret := {{$name}}{{.TypeParams.RSide}}{
+{{range .Fields}}{{$type := $G.GoType .TypeExpr}}{{if not .HasDefault}}		{{.Name | public}}: {{.Name | lower | goEscape}},
+{{else}}		{{.Name | public}}: ((*{{$name}}{{$decl.TypeParams.RSide}})(nil)).Default_{{.Name}}(),
 {{end}}{{- end}}	}
 	return ret
 }
 
+{{range .Fields}}{{$type := $G.GoType .TypeExpr}}{{if .HasDefault}}func (*{{$decl.Name}}{{$decl.TypeParams.RSide}}) Default_{{.Name | $G.GoEscape}}() {{$type}}{{$type.TypeParams.RSide}} {
+	return {{$G.GoValue .TypeExpr .Just}}
+}
+{{end}}{{end}}

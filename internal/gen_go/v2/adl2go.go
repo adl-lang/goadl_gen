@@ -122,7 +122,7 @@ var goKeywords = map[string]string{
 	"var":         "var_",
 }
 
-func goEscape(n string) string {
+func (*baseGen) GoEscape(n string) string {
 	if g, h := goKeywords[n]; h {
 		return g
 	}

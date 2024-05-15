@@ -8,6 +8,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v2"
@@ -248,8 +250,10 @@ func (base *baseGen) generalDeclV2(
 		body.rr.Render(texprmonoParams{
 			G:          body,
 			ModuleName: base.moduleName,
-			Name:       goEscape(base.name),
-			TypeParams: getTypeParams(decl),
+			// Name:       goEscape(base.name),
+			// TypeParams: getTypeParams(decl),
+			Name:       base.name,
+			TypeParams: typeParamsFromDecl(decl),
 			Decl:       decl,
 		})
 	}
@@ -257,8 +261,9 @@ func (base *baseGen) generalDeclV2(
 		body.rr.Render(scopedDeclParams{
 			G:          body,
 			ModuleName: base.moduleName,
-			Name:       goEscape(base.name),
+			Name:       base.name,
 			Decl:       decl,
+			TypeParams: typeParamsFromDecl(decl),
 			Fields: goadl.Handle_DeclType[[]fieldParams](
 				decl.Type.Branch,
 				func(struct_ goadl.Struct) []fieldParams {
@@ -268,12 +273,16 @@ func (base *baseGen) generalDeclV2(
 				},
 				func(u goadl.Union) []fieldParams {
 					return slices.Map[goadl.Field, fieldParams](u.Fields, func(f goadl.Field) fieldParams {
-						return fieldParams{
-							Name:           goEscape(f.Name),
-							SerializedName: f.SerializedName,
-							TypeParams:     new_typeParams(u.TypeParams),
-							Type:           base.GoType(f.TypeExpr),
-						}
+						return makeFieldParam(f)
+						// return fieldParams{
+						// 	Field:      f,
+						// 	HasDefault: f.Default.Just != nil,
+						// 	Just:       *f.Default.Just,
+						// 	// Name:           goEscape(f.Name),
+						// 	// SerializedName: f.SerializedName,
+						// 	// TypeParams:     new_typeParams(u.TypeParams),
+						// 	// Type:           base.GoType(f.TypeExpr),
+						// }
 					})
 				},
 				func(type_ goadl.TypeDef) []fieldParams {
@@ -318,21 +327,35 @@ func (*generator) JsonEncode(val any) string {
 
 func (in *generator) generateStruct(s goadl.DeclTypeBranch_Struct_) (interface{}, error) {
 	in.rr.Render(structParams{
-		G:          in,
-		Name:       goEscape(in.name),
+		G: in,
+		// Name:       goEscape(in.name),
+		Name:       in.name,
 		TypeParams: typeParam{s.TypeParams, false},
 		Fields: slices.Map(s.Fields, func(f goadl.Field) fieldParams {
-			return fieldParams{
-				Name:           goEscape(f.Name),
-				SerializedName: f.SerializedName,
-				TypeParams:     typeParam{s.TypeParams, false},
-				Type:           in.GoType(f.TypeExpr),
-				HasDefault:     f.Default.Just != nil,
-				Just:           f.Default.Just,
-			}
+			return makeFieldParam(f)
+			// fp := fieldParams{
+			// 	// Name:           goEscape(f.Name),
+			// 	// SerializedName: f.SerializedName,
+			// 	// TypeParams:     typeParam{s.TypeParams, false},
+			// 	// Type:           in.GoType(f.TypeExpr),
+			// 	Field:      f,
+			// 	HasDefault: f.Default.Just != nil,
+			// }
+			// return fp
 		}),
 	})
 	return nil, nil
+}
+
+func makeFieldParam(f goadl.Field) fieldParams {
+	fp := fieldParams{
+		Field:      f,
+		HasDefault: f.Default.Just != nil,
+	}
+	if f.Default.Just != nil {
+		fp.Just = *f.Default.Just
+	}
+	return fp
 }
 
 func (in *generator) ToTitle(s string) string {
@@ -341,16 +364,21 @@ func (in *generator) ToTitle(s string) string {
 
 func (in *generator) generateUnion(u goadl.DeclTypeBranch_Union_) (interface{}, error) {
 	in.rr.Render(unionParams{
-		G:          in,
-		Name:       goEscape(in.name),
+		G: in,
+		// Name:       goEscape(in.name),
+		Name:       in.name,
 		TypeParams: new_typeParams(u.TypeParams),
 		Branches: slices.Map[goadl.Field, fieldParams](u.Fields, func(f goadl.Field) fieldParams {
-			return fieldParams{
-				Name:           goEscape(f.Name),
-				SerializedName: f.SerializedName,
-				TypeParams:     new_typeParams(u.TypeParams),
-				Type:           in.GoType(f.TypeExpr),
-			}
+			return makeFieldParam(f)
+			// return fieldParams{
+			// 	Field:      f,
+			// 	HasDefault: f.Default.Just != nil,
+			// 	Just:       *f.Default.Just,
+			// 	// Name:           goEscape(f.Name),
+			// 	// SerializedName: f.SerializedName,
+			// 	// TypeParams:     new_typeParams(u.TypeParams),
+			// 	// Type:           in.GoType(f.TypeExpr),
+			// }
 		}),
 	})
 	return nil, nil
@@ -358,8 +386,9 @@ func (in *generator) generateUnion(u goadl.DeclTypeBranch_Union_) (interface{}, 
 
 func (in *generator) generateTypeAlias(td goadl.DeclTypeBranch_Type_) (interface{}, error) {
 	in.rr.Render(typeAliasParams{
-		G:          in,
-		Name:       goEscape(in.name),
+		G: in,
+		// Name:       goEscape(in.name),
+		Name:       in.name,
 		TypeParams: new_typeParams(td.TypeParams),
 		RType:      in.GoType(td.TypeExpr),
 	})
@@ -376,8 +405,9 @@ type newTypeParams typeAliasParams
 
 func (in *generator) generateNewType(nt goadl.DeclTypeBranch_Newtype_) (interface{}, error) {
 	in.rr.Render(newTypeParams{
-		G:          in,
-		Name:       goEscape(in.name),
+		G: in,
+		// Name:       goEscape(in.name),
+		Name:       in.name,
 		TypeParams: new_typeParams(nt.TypeParams),
 		RType:      in.GoType(nt.TypeExpr),
 	})
@@ -391,3 +421,121 @@ func jsonPrimitiveDefaultToGo(primitive string, defVal interface{}) string {
 	}
 	return fmt.Sprintf(`%v`, defVal)
 }
+
+func (bg *baseGen) GoValue(te goadl.TypeExpr, val any) string {
+	return goadl.Handle_TypeRef[string](
+		te.TypeRef.Branch,
+		func(primitive string) string {
+			return bg.GoValuePrimitive(te, primitive, val)
+		},
+		func(typeParam string) string {
+			panic("???")
+		},
+		func(ref goadl.ScopedName) string {
+			return bg.GoValueScopedName(te, ref, val)
+		},
+	)
+}
+
+func (bg *baseGen) GoValuePrimitive(te goadl.TypeExpr, primitive string, val any) string {
+	switch primitive {
+	case "Int8", "Int16", "Int32", "Int64",
+		"Word8", "Word16", "Word32", "Word64",
+		"Bool", "Float", "Double":
+		return fmt.Sprintf("%v", val)
+	case "String":
+		return fmt.Sprintf(`"%s"`, val)
+	// case "ByteVector":
+	case "Void":
+		return "nil"
+	case "Json":
+		panic("todo")
+	case "Vector":
+		rv := reflect.ValueOf(val)
+		vs := make([]string, rv.Len())
+		for i := 0; i < rv.Len(); i++ {
+			v := rv.Index(i)
+			vs[i] = bg.GoValue(te.Parameters[0], v.Interface())
+		}
+		vss := strings.Join(vs, ",\n")
+		return fmt.Sprintf("[]%s{\n%s,\n}", bg.GoType(te.Parameters[0]), vss)
+	case "StringMap":
+		m := val.(map[string]any)
+		vs := make(kvBy, 0, len(m))
+		for k, v := range m {
+			vs = append(vs, kv{k, bg.GoValue(te.Parameters[0], v)})
+		}
+		sort.Sort(vs)
+		return fmt.Sprintf("map[string]%s{\n%s,\n}", bg.GoType(te.Parameters[0]), vs)
+	case "Nullable":
+		if val == nil {
+			return "nil"
+		}
+		return bg.GoValue(te.Parameters[0], val)
+	}
+	panic("???")
+}
+
+func (bg *baseGen) GoValueScopedName(te goadl.TypeExpr, ref goadl.ScopedName, val any) string {
+	gt := bg.GoType(te)
+	decl, ok := bg.declMap[ref.ModuleName+"::"+ref.Name]
+	if !ok {
+		panic("decl not in map :" + ref.ModuleName + "::" + ref.Name)
+	}
+	vs := goadl.Handle_DeclType[[]string](
+		decl.Type.Branch,
+		func(struct_ goadl.Struct) []string {
+			m := val.(map[string]any)
+			return slices.FlatMap[goadl.Field, string](struct_.Fields, func(f goadl.Field) []string {
+				ret := []string{}
+				if v, ok := m[f.SerializedName]; ok {
+					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), bg.GoValue(f.TypeExpr, v)))
+				}
+				if _, ok := m[f.SerializedName]; !ok && f.Default.Just != nil {
+					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), bg.GoValue(f.TypeExpr, *f.Default.Just)))
+				}
+				return ret
+			})
+		},
+		func(union_ goadl.Union) []string {
+			return []string{"todo"}
+		},
+		func(type_ goadl.TypeDef) []string {
+			return []string{"todo"}
+		},
+		func(newtype_ goadl.NewType) []string {
+			return []string{"todo"}
+		},
+		nil,
+	)
+
+	return fmt.Sprintf("%s{\n%s,\n}", gt.String(), strings.Join(vs, ",\n"))
+	// return fmt.Sprintf("%s{%v,\n}", gt.String(), val)
+
+	// panic("todo")
+}
+
+type kv struct {
+	k string
+	v string
+}
+
+type kvBy []kv
+
+func (kv kv) String() string {
+	return fmt.Sprintf(`"%s" : %s`, kv.k, kv.v)
+}
+func (elems kvBy) String() string {
+	var b strings.Builder
+	// b.Grow(n)
+	b.WriteString(elems[0].String())
+	for _, s := range elems[1:] {
+		b.WriteString(",\n")
+		b.WriteString(s.String())
+	}
+	return b.String()
+}
+
+func (a kvBy) Len() int           { return len(a) }
+func (a kvBy) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a kvBy) Less(i, j int) bool { return a[i].k < a[j].v }

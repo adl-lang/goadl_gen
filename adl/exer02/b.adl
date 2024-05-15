@@ -1,7 +1,8 @@
 module exer02.b {
 
 struct B {
-    String a;
+    String a = "exer02.b.B::a";
+    String b = "exer02.b.B::b";
 };
 
 };

@@ -1,5 +1,6 @@
 {{$G := .G}}
-func AST_{{.Name}}() {{$G.Import "goadl"}}.ScopedDecl {
+{{$name := .Name | .G.GoEscape | public}}
+func AST_{{$name}}() {{$G.Import "goadl"}}.ScopedDecl {
 	var decl {{$G.Import "goadl"}}.Decl
 	dec := {{.G.Import "json"}}.NewDecoder({{.G.Import "strings"}}.NewReader(`{{.G.JsonEncode .Decl}}`))
 	dec.Decode(&decl)
@@ -12,14 +13,13 @@ func AST_{{.Name}}() {{$G.Import "goadl"}}.ScopedDecl {
 	}
 }
 
-{{$name := .Name}}
 func init() {
 	goadl.RESOLVER.Register(
 		goadl.ScopedName{ModuleName: "{{.ModuleName}}", Name: "{{.Name}}"},
 		goadl.ScopedInfo{
 			SD: AST_{{.Name}}(),
-			TypeMap: map[string]{{$G.Import "reflect"}}.Type{ {{- range .Fields}}
-				"{{.SerializedName}}": {{$G.Import "reflect"}}.TypeOf({{$name}}Branch_{{.Name}}{{.Type.TypeParams.TpArgs}}{}),{{end}}
+			TypeMap: map[string]{{$G.Import "reflect"}}.Type{ {{- range .Fields}}{{$Type := $G.GoType .TypeExpr}}
+				"{{.SerializedName}}": {{$G.Import "reflect"}}.TypeOf({{$name}}Branch_{{.Name}}{{$Type.TypeParams.TpArgs}}{}),{{end}}
 			},
 		},
 	)

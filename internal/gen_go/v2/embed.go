@@ -12,6 +12,20 @@ import (
 	goadl "github.com/adl-lang/goadl_rt/v2"
 )
 
+func public(s string) string {
+	if len(s) == 0 {
+		return ""
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+func goEscape(n string) string {
+	if g, h := goKeywords[n]; h {
+		return g
+	}
+	return n
+}
+
 var (
 	//go:embed templates/*
 	templateFS embed.FS
@@ -20,15 +34,11 @@ var (
 		template.
 			New("").
 			Funcs(template.FuncMap{
-				"public": func(s string) string {
-					if len(s) == 0 {
-						return ""
-					}
-					return strings.ToUpper(s[:1]) + s[1:]
-				},
+				"public": public,
 				"lower": func(s string) string {
 					return strings.ToLower(s)
 				},
+				"goEscape": goEscape,
 			}).
 			ParseFS(templateFS, "templates/*"))
 )
@@ -100,10 +110,11 @@ type unionParams struct {
 }
 
 type fieldParams struct {
-	Name           string
-	SerializedName string
-	Type           goTypeExpr
-	TypeParams     typeParam
-	HasDefault     bool
-	Just           any
+	goadl.Field
+	// Name           string
+	// SerializedName string
+	// Type           goTypeExpr
+	// TypeParams typeParam
+	HasDefault bool
+	Just       any
 }

@@ -16,7 +16,7 @@ func new_typeParams(ps []string) typeParam {
 	}
 }
 
-func getTypeParams(decl goadl.Decl) typeParam {
+func typeParamsFromDecl(decl goadl.Decl) typeParam {
 	return goadl.HandleP_DeclType[typeParam](
 		decl.Type.Branch,
 		func(struct_ goadl.Struct) typeParam {
