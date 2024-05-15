@@ -1,13 +1,14 @@
-func Texpr_{{.Name}}{{.TypeParams.LSide}}({{.TypeParams.TexprArgs}}) goadl.ATypeExpr[{{.Name}}{{.TypeParams.RSide}}] {
+{{$G := .G}}
+func Texpr_{{.Name}}{{.TypeParams.LSide}}({{.TypeParams.TexprArgs}}) {{$G.Import "goadl"}}.ATypeExpr[{{.Name}}{{.TypeParams.RSide}}] {
 	return goadl.ATypeExpr[{{.Name}}{{.TypeParams.RSide}}] {
-		Value: goadl.TypeExpr{
-			TypeRef: goadl.TypeRef{
-				Branch: goadl.TypeRefBranch_Reference{
+		Value: {{$G.Import "goadl"}}.TypeExpr{
+			TypeRef: {{$G.Import "goadl"}}.TypeRef{
+				Branch: {{$G.Import "goadl"}}.TypeRefBranch_Reference{
 					ModuleName: "{{.ModuleName}}",
 					Name:       "{{.Name}}",
 				},
 			},
-			Parameters: []goadl.TypeExpr{ {{- .TypeParams.TexprValues -}} },
+			Parameters: []{{$G.Import "goadl"}}.TypeExpr{ {{- .TypeParams.TexprValues -}} },
 		},
 	}
 }

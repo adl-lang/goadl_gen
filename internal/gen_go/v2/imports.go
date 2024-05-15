@@ -17,11 +17,15 @@ type importSpec struct {
 	Name    string
 }
 
-func newImports() imports {
+func newImports(reserved []importSpec) imports {
 	im := imports{used: make(map[string]bool)}
-	// for _, spec := range importList {
-	// 	i.reserve(spec)
-	// }
+	for i := range reserved {
+		spec := reserved[i]
+		if !spec.Aliased {
+			spec.Name = pkgFromImport(spec.Path)
+		}
+		im.specs = append(im.specs, spec)
+	}
 	return im
 }
 

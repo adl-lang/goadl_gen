@@ -7,11 +7,21 @@ type {{$name}}Branch{{.TypeParams.LSide}} interface {
 	is{{$name}}Branch()
 }
 
+func (*{{$name}}{{.TypeParams.RSide}}) MakeNewBranch(key string) ({{$name}}Branch{{.TypeParams.RSide}}, error) {
+	switch key {
+	{{range .Branches -}}case "{{.SerializedName}}":
+		return {{$name}}Branch_{{.Name}}{{.Type.TypeParams.RSide}}{}, nil
+	{{end}}}
+	return nil, {{.G.Import "fmt"}}.Errorf("unknown branch is : %s", key)
+}
+
 {{range .Branches -}}
 type {{$name}}Branch_{{.Name}}{{.Type.TypeParams.LSide}} struct {
 	V {{.Type}} `branch:"{{.Name}}"`
 }
 {{end}}
+
+
 
 {{range .Branches -}}
 func ({{$name}}Branch_{{.Name}}{{.Type.TypeParams.RSide}}) is{{$name}}Branch() {}

@@ -13,12 +13,16 @@ import (
 )
 
 func TestXxx(t *testing.T) {
-	x := generics.Abc[int64, string]{
-		A: 1,
-		B: []string{"a"},
-		C: 2,
-		D: generics.Make_Def_a[int64, string](3),
-	}
+	x := generics.Make_Abc[int64, string](
+		1, []string{"a"}, generics.Make_Def_a[int64, string](3),
+	)
+
+	// x := generics.Abc[int64, string]{
+	// 	A: 1,
+	// 	B: []string{"a"},
+	// 	C: 2,
+	// 	D: generics.Make_Def_a[int64, string](3),
+	// }
 	out := &bytes.Buffer{}
 	enc := adljson.NewEncoder(out, generics.Texpr_Abc(goadl.Texpr_Int64(), goadl.Texpr_String()), goadl.RESOLVER)
 	err := enc.Encode(x)

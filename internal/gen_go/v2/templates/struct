@@ -3,3 +3,14 @@ type {{.Name|public}}{{.TypeParams.LSide}} struct {
 {{end -}}
 }
 
+func Make_{{.Name|public}}{{.TypeParams.LSide}}(
+{{range .Fields}}{{if not .HasDefault}}	{{.Name|lower}} {{.Type}},
+{{end}}{{end -}}
+) {{.Name|public}}{{.TypeParams.RSide}} {
+	ret := {{.Name|public}}{{.TypeParams.RSide}}{
+{{range .Fields}}{{if not .HasDefault}}		{{.Name|public}}: {{.Name|lower}},
+{{else}}		{{.Name|public}}: {{.Just}},
+{{end}}{{- end}}	}
+	return ret
+}
+

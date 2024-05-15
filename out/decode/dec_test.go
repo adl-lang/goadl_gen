@@ -3,6 +3,7 @@ package decode_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -101,6 +102,15 @@ func TestTopLevelUnion01(t *testing.T) {
 	}
 	if !reflect.DeepEqual(y, test01.Make_D_a(42)) {
 		t.Fail()
+	}
+}
+
+func TestTypeCast(t *testing.T) {
+	d := &test01.D{}
+	if _, ok := any(d).(goadl.BranchFactory); ok {
+		fmt.Printf("D implements BranchFactory")
+	} else {
+		t.Errorf("D doesn't implements BranchFactory")
 	}
 }
 

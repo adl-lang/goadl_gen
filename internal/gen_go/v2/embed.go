@@ -26,6 +26,9 @@ var (
 					}
 					return strings.ToUpper(s[:1]) + s[1:]
 				},
+				"lower": func(s string) string {
+					return strings.ToLower(s)
+				},
 			}).
 			ParseFS(templateFS, "templates/*"))
 )
@@ -68,7 +71,7 @@ type scopedDeclParams struct {
 	Name       string
 	TypeParams typeParam
 	Decl       goadl.Decl
-	Fields     []typeMapField
+	Fields     []fieldParams
 }
 
 type texprmonoParams scopedDeclParams
@@ -78,7 +81,7 @@ type headerParams struct {
 }
 
 type importsParams struct {
-	Rt      string
+	// Rt      string
 	Imports []importSpec
 }
 
@@ -86,18 +89,21 @@ type structParams struct {
 	G          *generator
 	Name       string
 	TypeParams typeParam
-	Fields     []unionBranchParams
+	Fields     []fieldParams
 }
 
 type unionParams struct {
 	G          *generator
 	Name       string
 	TypeParams typeParam
-	Branches   []unionBranchParams
+	Branches   []fieldParams
 }
 
-type unionBranchParams struct {
-	Name       string
-	Type       goTypeExpr
-	TypeParams typeParam
+type fieldParams struct {
+	Name           string
+	SerializedName string
+	Type           goTypeExpr
+	TypeParams     typeParam
+	HasDefault     bool
+	Just           any
 }

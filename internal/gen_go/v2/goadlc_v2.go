@@ -44,7 +44,9 @@ type goadlcV2Cmd struct {
 	// NoOverwrite    bool     `help:"Don't update files that haven't changed"`
 	// Manifest       string   `help:"Write a manifest file recording generated files"`
 	// CombinedOutput string   `help:"The json file to which all adl modules will be written"`
-	Files []string `opts:"mode=arg"`
+	SkipGenTexpr      bool     `opts:"short=t" help:"Don't generate type expr functions"`
+	SkipGenScopedDecl bool     `opts:"short=s" help:"Don't generate scoped decl and init registration functions"`
+	Files             []string `opts:"mode=arg"`
 }
 
 func (in *goadlcV2Cmd) Run() error {
@@ -141,11 +143,13 @@ func (in *goadlcV2Cmd) Run() error {
 		}
 		for name, decl := range m.module.Decls {
 			baseGen := &baseGen{
+				cli:        in,
 				declMap:    declMap,
 				modulePath: modulePath,
 				midPath:    midPath,
 				moduleName: m.name,
 				name:       name,
+				imports:    newImports(reservedImports),
 			}
 			unformatted := baseGen.generalDeclV2(modCodeGen, decl)
 			var formatted []byte
@@ -176,31 +180,49 @@ func (in *goadlcV2Cmd) Run() error {
 	return nil
 }
 
+var reservedImports []importSpec = []importSpec{
+	{Path: "encoding/json"},
+	{Path: "reflect"},
+	{Path: "strings"},
+	{Path: "fmt"},
+	{Path: "github.com/adl-lang/goadl_rt/v2", Aliased: true, Name: "goadl"},
+}
+
+func (bg *baseGen) Import(pkg string) (string, error) {
+	if spec, ok := bg.imports.byName(pkg); !ok {
+		return "", fmt.Errorf("unknown import %s", pkg)
+	} else {
+		bg.imports.add(spec.Path)
+		return spec.Name, nil
+	}
+}
+
 type baseGen struct {
+	cli        *goadlcV2Cmd
 	declMap    moduleMap[goadl.Decl]
 	modulePath string
 	midPath    string
 	moduleName string
 	name       string
+	imports    imports
 }
 
 type generator struct {
 	*baseGen
-	rr      templateRenderer
-	imports imports
+	rr templateRenderer
 }
 
-type typeMapField goadl.Field
+// type typeMapField goadl.Field
 
-func (f typeMapField) TpArgs() string {
-	if _, ok := f.TypeExpr.TypeRef.Branch.(goadl.TypeRefBranch_TypeParam); ok {
-		return "[any]"
-	}
-	if len(f.TypeExpr.Parameters) == 0 {
-		return ""
-	}
-	return "[any" + strings.Repeat(",any", len(f.TypeExpr.Parameters)-1) + "]"
-}
+// func (f typeMapField) TpArgs() string {
+// 	if _, ok := f.TypeExpr.TypeRef.Branch.(goadl.TypeRefBranch_TypeParam); ok {
+// 		return "[any]"
+// 	}
+// 	if len(f.TypeExpr.Parameters) == 0 {
+// 		return ""
+// 	}
+// 	return "[any" + strings.Repeat(",any", len(f.TypeExpr.Parameters)-1) + "]"
+// }
 
 func (base *baseGen) generalDeclV2(
 	modCodeGen ModuleCodeGen,
@@ -213,7 +235,6 @@ func (base *baseGen) generalDeclV2(
 	body := &generator{
 		baseGen: base,
 		rr:      templateRenderer{t: templates},
-		imports: newImports(),
 	}
 	goadl.HandleE_DeclType[any](
 		decl.Type.Branch,
@@ -223,55 +244,60 @@ func (base *baseGen) generalDeclV2(
 		body.generateNewType,
 	)
 
-	body.rr.Render(texprmonoParams{
-		G:          body,
-		ModuleName: base.moduleName,
-		Name:       goEscape(base.name),
-		TypeParams: getTypeParams(decl),
-		Decl:       decl,
-	})
-	body.rr.Render(scopedDeclParams{
-		G:          body,
-		ModuleName: base.moduleName,
-		Name:       goEscape(base.name),
-		Decl:       decl,
-		Fields: goadl.Handle_DeclType(
-			decl.Type.Branch,
-			func(struct_ goadl.Struct) []typeMapField {
-				return []typeMapField{}
-				// struct_.Fields[0].SerializedName
-				// return struct_.Fields
-			},
-			func(union_ goadl.Union) []typeMapField {
-				return slices.Map[goadl.Field, typeMapField](union_.Fields, func(a goadl.Field) typeMapField {
-					return typeMapField(a)
-				})
-			},
-			func(type_ goadl.TypeDef) []typeMapField {
-				return []typeMapField{}
-			},
-			func(newtype_ goadl.NewType) []typeMapField {
-				return []typeMapField{}
-			},
-			nil,
-		),
-	})
+	if !base.cli.SkipGenTexpr {
+		body.rr.Render(texprmonoParams{
+			G:          body,
+			ModuleName: base.moduleName,
+			Name:       goEscape(base.name),
+			TypeParams: getTypeParams(decl),
+			Decl:       decl,
+		})
+	}
+	if !base.cli.SkipGenScopedDecl {
+		body.rr.Render(scopedDeclParams{
+			G:          body,
+			ModuleName: base.moduleName,
+			Name:       goEscape(base.name),
+			Decl:       decl,
+			Fields: goadl.Handle_DeclType[[]fieldParams](
+				decl.Type.Branch,
+				func(struct_ goadl.Struct) []fieldParams {
+					return []fieldParams{}
+					// struct_.Fields[0].SerializedName
+					// return struct_.Fields
+				},
+				func(u goadl.Union) []fieldParams {
+					return slices.Map[goadl.Field, fieldParams](u.Fields, func(f goadl.Field) fieldParams {
+						return fieldParams{
+							Name:           goEscape(f.Name),
+							SerializedName: f.SerializedName,
+							TypeParams:     new_typeParams(u.TypeParams),
+							Type:           base.GoType(f.TypeExpr),
+						}
+					})
+				},
+				func(type_ goadl.TypeDef) []fieldParams {
+					return []fieldParams{}
+				},
+				func(newtype_ goadl.NewType) []fieldParams {
+					return []fieldParams{}
+				},
+				nil,
+			),
+		})
+	}
 
 	header.rr.Render(headerParams{
 		Pkg: modCodeGen.Directory[len(modCodeGen.Directory)-1],
 	})
-	imports := []importSpec{
-		{Path: "encoding/json"},
-		{Path: "reflect"},
-		{Path: "strings"},
-	}
+	imports := []importSpec{}
 	for _, spec := range body.imports.specs {
 		if body.imports.used[spec.Path] {
 			imports = append(imports, spec)
 		}
 	}
 	header.rr.Render(importsParams{
-		Rt: "github.com/adl-lang/goadl_rt/v2",
+		// Rt: "github.com/adl-lang/goadl_rt/v2",
 		// RtAs: "goadl",
 		Imports: imports,
 	})
@@ -282,7 +308,10 @@ func (base *baseGen) generalDeclV2(
 func (*generator) JsonEncode(val any) string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
-	enc.Encode(val)
+	err := enc.Encode(val)
+	if err != nil {
+		panic(err)
+	}
 	return string(bytes.Trim(buf.Bytes(), "\n"))
 	// return  buf.String()
 }
@@ -292,11 +321,14 @@ func (in *generator) generateStruct(s goadl.DeclTypeBranch_Struct_) (interface{}
 		G:          in,
 		Name:       goEscape(in.name),
 		TypeParams: typeParam{s.TypeParams, false},
-		Fields: slices.Map[goadl.Field, unionBranchParams](s.Fields, func(f goadl.Field) unionBranchParams {
-			return unionBranchParams{
-				Name:       goEscape(f.Name),
-				TypeParams: typeParam{s.TypeParams, false},
-				Type:       in.GoType(f.TypeExpr),
+		Fields: slices.Map(s.Fields, func(f goadl.Field) fieldParams {
+			return fieldParams{
+				Name:           goEscape(f.Name),
+				SerializedName: f.SerializedName,
+				TypeParams:     typeParam{s.TypeParams, false},
+				Type:           in.GoType(f.TypeExpr),
+				HasDefault:     f.Default.Just != nil,
+				Just:           f.Default.Just,
 			}
 		}),
 	})
@@ -312,11 +344,12 @@ func (in *generator) generateUnion(u goadl.DeclTypeBranch_Union_) (interface{}, 
 		G:          in,
 		Name:       goEscape(in.name),
 		TypeParams: new_typeParams(u.TypeParams),
-		Branches: slices.Map[goadl.Field, unionBranchParams](u.Fields, func(f goadl.Field) unionBranchParams {
-			return unionBranchParams{
-				Name:       goEscape(f.Name),
-				TypeParams: new_typeParams(u.TypeParams),
-				Type:       in.GoType(f.TypeExpr),
+		Branches: slices.Map[goadl.Field, fieldParams](u.Fields, func(f goadl.Field) fieldParams {
+			return fieldParams{
+				Name:           goEscape(f.Name),
+				SerializedName: f.SerializedName,
+				TypeParams:     new_typeParams(u.TypeParams),
+				Type:           in.GoType(f.TypeExpr),
 			}
 		}),
 	})

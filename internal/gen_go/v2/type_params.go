@@ -139,3 +139,10 @@ func (tp typeParam) TexprValues() string {
 	}
 	return strings.Join(slices.Map(tp.ps, func(e string) string { return fmt.Sprintf("%s.Value", strings.ToLower(e)) }), ", ")
 }
+
+func (tp typeParam) TpArgs() string {
+	if len(tp.ps) == 0 {
+		return ""
+	}
+	return "[any" + strings.Repeat(",any", len(tp.ps)-1) + "]"
+}

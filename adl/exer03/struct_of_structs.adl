@@ -18,7 +18,7 @@ struct Bar {
 struct Fizz {
     Foo A;
     Bar B;
-    Fizz c;
+    Nullable<Fizz> c;
 };
 
 };

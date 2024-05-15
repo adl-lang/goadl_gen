@@ -25,7 +25,7 @@ func (g goTypeExpr) String() string {
 	return g.Type + g.TypeParams.RSide()
 }
 
-func (in *generator) GoType(
+func (in *baseGen) GoType(
 	typeExpr goadl.TypeExpr,
 ) goTypeExpr {
 	_type := goadl.Handle_TypeRef(
@@ -71,7 +71,7 @@ func (in *generator) GoType(
 	return _type
 }
 
-func (in *generator) PrimitiveMap(
+func (in *baseGen) PrimitiveMap(
 	p string,
 	params []goadl.TypeExpr,
 ) (_type goTypeExpr) {

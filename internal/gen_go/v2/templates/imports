@@ -1,5 +1,3 @@
 import ({{range .Imports}}
 	{{if .Aliased}}{{.Name}} {{end}}"{{.Path}}"{{end}}
-
-	"{{.Rt}}"
 )

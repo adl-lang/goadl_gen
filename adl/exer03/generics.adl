@@ -3,7 +3,7 @@ module exer03.generics {
 struct Abc<A,B> {
     A a;
     Vector<B> b;
-    Int64 c;
+    Int64 c = 66;
     Def<A,B> d;
 };
 
