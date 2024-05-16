@@ -422,22 +422,32 @@ func jsonPrimitiveDefaultToGo(primitive string, defVal interface{}) string {
 	return fmt.Sprintf(`%v`, defVal)
 }
 
-func (bg *baseGen) GoValue(te goadl.TypeExpr, val any) string {
+func (bg *baseGen) GoValueDebug(d_tp typeParam, t_gt goTypeExpr, te goadl.TypeExpr, val any) string {
+	return strings.Join([]string{toJ(d_tp), toJ(t_gt), toJ(te), toJ(val)}, "\n")
+}
+
+func toJ(v any) string {
+	b, _ := json.MarshalIndent(v, "", "  ")
+	return string(b)
+}
+
+func (bg *baseGen) GoValue(decl_tp typeParam, te goadl.TypeExpr, val any) string {
 	return goadl.Handle_TypeRef[string](
 		te.TypeRef.Branch,
 		func(primitive string) string {
-			return bg.GoValuePrimitive(te, primitive, val)
+			return bg.GoValuePrimitive(decl_tp, te, primitive, val)
 		},
 		func(typeParam string) string {
-			panic("???")
+			// return typeParam
+			panic("???GoValue:typeParam " + typeParam)
 		},
 		func(ref goadl.ScopedName) string {
-			return bg.GoValueScopedName(te, ref, val)
+			return bg.GoValueScopedName(decl_tp, te, ref, val)
 		},
 	)
 }
 
-func (bg *baseGen) GoValuePrimitive(te goadl.TypeExpr, primitive string, val any) string {
+func (bg *baseGen) GoValuePrimitive(decl_tp typeParam, te goadl.TypeExpr, primitive string, val any) string {
 	switch primitive {
 	case "Int8", "Int16", "Int32", "Int64",
 		"Word8", "Word16", "Word32", "Word64",
@@ -455,7 +465,7 @@ func (bg *baseGen) GoValuePrimitive(te goadl.TypeExpr, primitive string, val any
 		vs := make([]string, rv.Len())
 		for i := 0; i < rv.Len(); i++ {
 			v := rv.Index(i)
-			vs[i] = bg.GoValue(te.Parameters[0], v.Interface())
+			vs[i] = bg.GoValue(decl_tp, te.Parameters[0], v.Interface())
 		}
 		vss := strings.Join(vs, ",\n")
 		return fmt.Sprintf("[]%s{\n%s,\n}", bg.GoType(te.Parameters[0]), vss)
@@ -463,7 +473,7 @@ func (bg *baseGen) GoValuePrimitive(te goadl.TypeExpr, primitive string, val any
 		m := val.(map[string]any)
 		vs := make(kvBy, 0, len(m))
 		for k, v := range m {
-			vs = append(vs, kv{k, bg.GoValue(te.Parameters[0], v)})
+			vs = append(vs, kv{k, bg.GoValue(decl_tp, te.Parameters[0], v)})
 		}
 		sort.Sort(vs)
 		return fmt.Sprintf("map[string]%s{\n%s,\n}", bg.GoType(te.Parameters[0]), vs)
@@ -471,12 +481,17 @@ func (bg *baseGen) GoValuePrimitive(te goadl.TypeExpr, primitive string, val any
 		if val == nil {
 			return "nil"
 		}
-		return bg.GoValue(te.Parameters[0], val)
+		return bg.GoValue(decl_tp, te.Parameters[0], val)
 	}
-	panic("???")
+	panic("??? GoValuePrimitive")
 }
 
-func (bg *baseGen) GoValueScopedName(te goadl.TypeExpr, ref goadl.ScopedName, val any) string {
+func (bg *baseGen) GoValueScopedName(
+	decl_tp typeParam,
+	te goadl.TypeExpr,
+	ref goadl.ScopedName,
+	val any,
+) string {
 	gt := bg.GoType(te)
 	decl, ok := bg.declMap[ref.ModuleName+"::"+ref.Name]
 	if !ok {
@@ -489,22 +504,73 @@ func (bg *baseGen) GoValueScopedName(te goadl.TypeExpr, ref goadl.ScopedName, va
 			return slices.FlatMap[goadl.Field, string](struct_.Fields, func(f goadl.Field) []string {
 				ret := []string{}
 				if v, ok := m[f.SerializedName]; ok {
-					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), bg.GoValue(f.TypeExpr, v)))
+					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), bg.GoValue(decl_tp, f.TypeExpr, v)))
 				}
 				if _, ok := m[f.SerializedName]; !ok && f.Default.Just != nil {
-					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), bg.GoValue(f.TypeExpr, *f.Default.Just)))
+					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), bg.GoValue(decl_tp, f.TypeExpr, *f.Default.Just)))
 				}
 				return ret
 			})
 		},
 		func(union_ goadl.Union) []string {
-			return []string{"todo"}
+			var (
+				k string
+				v any
+			)
+			switch t := val.(type) {
+			case string:
+				k = t
+				v = nil
+			case map[string]any:
+				if len(t) != 1 {
+					panic(fmt.Sprintf("expect an object with one and only element received %v", len(t)))
+				}
+				for k0, v0 := range t {
+					k = k0
+					v = v0
+				}
+			default:
+				panic(fmt.Errorf("union: expect an object received %v '%v'", reflect.TypeOf(val), val))
+			}
+			var fld *goadl.Field
+			for _, f0 := range union_.Fields {
+				if f0.SerializedName == k {
+					fld = &f0
+					break
+				}
+			}
+			if fld == nil {
+				panic(fmt.Errorf("unexpected branch - no type registered '%v'", k))
+			}
+			fte := bg.GoType(fld.TypeExpr)
+			// gte := bg.GoType(te)
+			// tp := typeParam{
+			// 	ps: slices.Map[string, string](fte.TypeParams.ps, func(a string) string {
+			// 		fld.TypeExpr.Parameters
+			// 	}),
+			// }
+			a0, _ := json.MarshalIndent(decl_tp, "", "  ")
+			a1, _ := json.MarshalIndent(fld, "", "  ")
+			a2, _ := json.MarshalIndent(fte, "", "  ")
+			_ = v
+			return []string{
+				fmt.Sprintf("%+v\n%+v\n%+v\n%+v",
+					string(a0), string(a1), string(a2), toJ(gt)),
+			}
+
+			// return []string{fmt.Sprintf(`%sBranch_%s%s{%v}`,
+			// 	decl.Name,
+			// 	fld.Name,
+			// 	fte.TypeParams.RSide(),
+			// 	// v,
+			// 	bg.GoValue(decl_tp, fld.TypeExpr, v),
+			// )}
 		},
 		func(type_ goadl.TypeDef) []string {
-			return []string{"todo"}
+			return []string{"todo - type"}
 		},
 		func(newtype_ goadl.NewType) []string {
-			return []string{"todo"}
+			return []string{"todo - newtype"}
 		},
 		nil,
 	)

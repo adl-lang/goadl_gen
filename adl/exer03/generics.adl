@@ -5,6 +5,7 @@ struct Abc<A,B> {
     Vector<B> b;
     Int64 c = 66;
     Def<A,B> d;
+    Def<Int64,String> e = {"a": 1234};
 };
 
 union Def<A,B> {

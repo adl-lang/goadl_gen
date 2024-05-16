@@ -1,6 +1,7 @@
 package gen_go_v2
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -67,6 +68,10 @@ type typeParam struct {
 	ps []string
 	// isTypeParam bool
 	added bool
+}
+
+func (tp typeParam) MarshalJSON() ([]byte, error) {
+	return json.Marshal(tp.ps)
 }
 
 func (tp typeParam) AddParam(newp string) typeParam {
