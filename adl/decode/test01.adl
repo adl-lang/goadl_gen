@@ -1,0 +1,48 @@
+module decode.test01 {
+
+newtype A = Int64;
+
+struct B {
+    Int64 a;
+};
+
+struct C {
+    B b;
+    B c;
+};
+
+union D {
+    Int64 a;
+    B b;
+};
+
+struct E {
+    D d;
+};
+
+struct F {
+    Int8 a;
+    Int16 b;
+    Int32 c;
+    Int64 d;
+    Word8 e;
+    Word16 f;
+    Word32 g;
+    Word64 h;
+    Bool i;
+    Float j;
+    Double k;
+    String l;
+    // ByteVector m;
+    Json n;
+    Vector<Int64> o;
+    StringMap<Int64> p;
+    Nullable<Int64> q;
+    Void r;
+};
+
+struct G {
+    Vector<G> a;
+};
+
+};
