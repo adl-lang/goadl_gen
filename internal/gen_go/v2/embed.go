@@ -118,3 +118,11 @@ type fieldParams struct {
 	HasDefault bool
 	Just       any
 }
+
+type typeAliasParams struct {
+	G          *generator
+	Name       string
+	TypeParams typeParam
+	RType      goTypeExpr
+}
+type newTypeParams typeAliasParams

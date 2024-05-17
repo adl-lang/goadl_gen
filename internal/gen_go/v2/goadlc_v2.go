@@ -410,14 +410,6 @@ func (in *generator) generateTypeAlias(td goadl.DeclTypeBranch_Type_) (interface
 	return nil, nil
 }
 
-type typeAliasParams struct {
-	G          *generator
-	Name       string
-	TypeParams typeParam
-	RType      goTypeExpr
-}
-type newTypeParams typeAliasParams
-
 func (in *generator) generateNewType(nt goadl.DeclTypeBranch_Newtype_) (interface{}, error) {
 	in.rr.Render(newTypeParams{
 		G: in,
@@ -438,22 +430,33 @@ func jsonPrimitiveDefaultToGo(primitive string, defVal interface{}) string {
 }
 
 func (bg *baseGen) GoValue(decl_tp typeParam, te goadl.TypeExpr, val any) string {
+	defer func() {
+		r := recover()
+		if r != nil {
+			fmt.Fprintf(os.Stderr, "ERROR in GoValue %v\n", r)
+			panic(r)
+		}
+	}()
+	return bg.goValue(decl_tp, te, val)
+}
+
+func (bg *baseGen) goValue(decl_tp typeParam, te goadl.TypeExpr, val any) string {
 	return goadl.Handle_TypeRef[string](
 		te.TypeRef.Branch,
 		func(primitive string) string {
-			return bg.GoValuePrimitive(decl_tp, te, primitive, val)
+			return bg.goValuePrimitive(decl_tp, te, primitive, val)
 		},
 		func(typeParam string) string {
 			// return typeParam
 			panic("???GoValue:typeParam " + typeParam)
 		},
 		func(ref goadl.ScopedName) string {
-			return bg.GoValueScopedName(decl_tp, te, ref, val)
+			return bg.goValueScopedName(decl_tp, te, ref, val)
 		},
 	)
 }
 
-func (bg *baseGen) GoValuePrimitive(decl_tp typeParam, te goadl.TypeExpr, primitive string, val any) string {
+func (bg *baseGen) goValuePrimitive(decl_tp typeParam, te goadl.TypeExpr, primitive string, val any) string {
 	switch primitive {
 	case "Int8", "Int16", "Int32", "Int64",
 		"Word8", "Word16", "Word32", "Word64",
@@ -471,7 +474,10 @@ func (bg *baseGen) GoValuePrimitive(decl_tp typeParam, te goadl.TypeExpr, primit
 		vs := make([]string, rv.Len())
 		for i := 0; i < rv.Len(); i++ {
 			v := rv.Index(i)
-			vs[i] = bg.GoValue(decl_tp, te.Parameters[0], v.Interface())
+			vs[i] = bg.goValue(decl_tp, te.Parameters[0], v.Interface())
+		}
+		if len(vs) == 0 {
+			return fmt.Sprintf("[]%s{}", bg.GoType(te.Parameters[0]))
 		}
 		vss := strings.Join(vs, ",\n")
 		return fmt.Sprintf("[]%s{\n%s,\n}", bg.GoType(te.Parameters[0]), vss)
@@ -479,7 +485,10 @@ func (bg *baseGen) GoValuePrimitive(decl_tp typeParam, te goadl.TypeExpr, primit
 		m := val.(map[string]any)
 		vs := make(kvBy, 0, len(m))
 		for k, v := range m {
-			vs = append(vs, kv{k, bg.GoValue(decl_tp, te.Parameters[0], v)})
+			vs = append(vs, kv{k, bg.goValue(decl_tp, te.Parameters[0], v)})
+		}
+		if len(vs) == 0 {
+			return fmt.Sprintf("map[string]%s{}", bg.GoType(te.Parameters[0]))
 		}
 		sort.Sort(vs)
 		return fmt.Sprintf("map[string]%s{\n%s,\n}", bg.GoType(te.Parameters[0]), vs)
@@ -487,12 +496,12 @@ func (bg *baseGen) GoValuePrimitive(decl_tp typeParam, te goadl.TypeExpr, primit
 		if val == nil {
 			return "nil"
 		}
-		return bg.GoValue(decl_tp, te.Parameters[0], val)
+		return "&" + bg.goValue(decl_tp, te.Parameters[0], val)
 	}
 	panic("??? GoValuePrimitive")
 }
 
-func (bg *baseGen) GoValueScopedName(
+func (bg *baseGen) goValueScopedName(
 	decl_tp typeParam,
 	te goadl.TypeExpr,
 	ref goadl.ScopedName,
@@ -519,10 +528,16 @@ func (bg *baseGen) GoValueScopedName(
 			return slices.FlatMap[goadl.Field, string](struct_.Fields, func(f goadl.Field) []string {
 				ret := []string{}
 				if v, ok := m[f.SerializedName]; ok {
-					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), bg.GoValue(decl_tp, f.TypeExpr, v)))
+					monoTe := defunctionalizeTe(tpMap, f.TypeExpr)
+					fgv := bg.goValue(decl_tp, monoTe, v)
+					// bg.GoValue(decl_tp, f.TypeExpr, v)
+					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
 				}
 				if _, ok := m[f.SerializedName]; !ok && f.Default.Just != nil {
-					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), bg.GoValue(decl_tp, f.TypeExpr, *f.Default.Just)))
+					monoTe := defunctionalizeTe(tpMap, f.TypeExpr)
+					fgv := bg.goValue(decl_tp, monoTe, *f.Default.Just)
+					// bg.GoValue(decl_tp, f.TypeExpr, *f.Default.Just)
+					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
 				}
 				return ret
 			})
@@ -574,7 +589,7 @@ func (bg *baseGen) GoValueScopedName(
 					decl.Name,
 					fld.Name,
 					f_tp.RSide(),
-					bg.GoValue(decl_tp, monoTe, v),
+					bg.goValue(decl_tp, monoTe, v),
 				),
 			}
 		},

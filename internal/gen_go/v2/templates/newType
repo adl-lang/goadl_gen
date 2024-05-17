@@ -1,1 +1,2 @@
-type {{.Name|public}}{{.TypeParams.LSide}} {{.RType.Type}}
+{{$G := .G}}
+type {{.Name|public}}{{.TypeParams.LSide}} {{.RType}}

@@ -9,20 +9,37 @@ import (
 )
 
 type goTypeExpr struct {
-	Pkg        string
-	Type       string
-	TypeParams typeParam
-	TypeParam  bool
+	Pkg         string
+	Type        string
+	TypeParams  typeParam
+	IsTypeParam bool
 }
 
 func (g goTypeExpr) String() string {
-	if g.TypeParam {
+	if g.IsTypeParam {
+		if g.Pkg != "" {
+			return g.Pkg + "." + g.Type
+		}
 		return g.Type
 	}
 	if g.Pkg != "" {
 		return g.Pkg + "." + g.Type + g.TypeParams.RSide()
 	}
 	return g.Type + g.TypeParams.RSide()
+}
+
+func (g goTypeExpr) Complete() string {
+	if g.Pkg != "" {
+		return g.Pkg + "." + g.Type + g.TypeParams.RSide()
+	}
+	return g.Type + g.TypeParams.RSide()
+}
+
+func (g goTypeExpr) sansTypeParam() string {
+	if g.Pkg != "" {
+		return g.Pkg + "." + g.Type
+	}
+	return g.Type
 }
 
 func (in *baseGen) GoType(
@@ -64,7 +81,7 @@ func (in *baseGen) GoType(
 				TypeParams: typeParam{
 					ps: slices.Map(goTypeParams, func(a goTypeExpr) string { return a.String() }),
 				},
-				TypeParam: false,
+				IsTypeParam: false,
 			}
 		},
 	)
@@ -82,12 +99,12 @@ func (in *baseGen) PrimitiveMap(
 	elem := in.GoType(params[0])
 	switch p {
 	case "Vector":
-		return goTypeExpr{"", "[]" + elem.String(), elem.TypeParams, elem.TypeParam} // "[]" + elem.String(), elem.TypeParams
+		return goTypeExpr{"", "[]" + elem.sansTypeParam(), elem.TypeParams, elem.IsTypeParam} // "[]" + elem.String(), elem.TypeParams
 	case "StringMap":
-		return goTypeExpr{"", "map[string]" + elem.String(), elem.TypeParams, elem.TypeParam} // "[]" + elem.String(), elem.TypeParams
+		return goTypeExpr{"", "map[string]" + elem.sansTypeParam(), elem.TypeParams, elem.IsTypeParam} // "[]" + elem.String(), elem.TypeParams
 		// return "map[string]" + elem.String(), elem.TypeParams
 	case "Nullable":
-		return goTypeExpr{"", "*" + elem.String(), elem.TypeParams, elem.TypeParam} // "[]" + elem.String(), elem.TypeParams
+		return goTypeExpr{"", "*" + elem.sansTypeParam(), elem.TypeParams, elem.IsTypeParam} // "[]" + elem.String(), elem.TypeParams
 		// return "*" + elem.String(), elem.TypeParams
 	}
 	panic(fmt.Errorf("no such primitive '%s'", p))

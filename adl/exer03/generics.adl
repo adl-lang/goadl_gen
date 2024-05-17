@@ -3,9 +3,14 @@ module exer03.generics {
 struct Abc<A,B> {
     A a;
     Vector<B> b;
+    Vector<Abc<A,B>> kids = [];
+    StringMap<Abc<Int64,String>> grandkids_named = {
+        "fav": {"grandkids_named": {}, "a": 4321, "b": ["aaa"], "c": 99, "d": {"d": {"a": 22}}, "e": {"a" : 123456789}, "f": null}
+    };
     Int64 c = 66;
     Def<A,B> d;
     Def<Int64,String> e = {"a": 1234};
+    Nullable<Abc<Int64,String>> f = {"a": 4321, "b": ["aaa"], "c": 99, "d": {"d": {"a": 22}}, "e": {"a" : 123456789}, "f": null};
 };
 
 union Def<A,B> {
