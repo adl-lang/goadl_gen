@@ -51,6 +51,8 @@ type goadlcV2Cmd struct {
 	Files             []string `opts:"mode=arg"`
 }
 
+type snResolver func(sn goadl.ScopedName) (*goadl.Decl, bool)
+
 func (in *goadlcV2Cmd) Run() error {
 	if len(in.Files) == 0 {
 		return fmt.Errorf("no files specified")
@@ -79,6 +81,17 @@ func (in *goadlcV2Cmd) Run() error {
 		os.Exit(1)
 	}
 
+	resolver := func(sn goadl.ScopedName) (*goadl.Decl, bool) {
+		mod, ok := combinedAst[sn.ModuleName]
+		if !ok {
+			return nil, false
+		}
+		decl, ok := mod.Decls[sn.Name]
+		if !ok {
+			return nil, false
+		}
+		return &decl, true
+	}
 	modulePath := ""
 	midPath := ""
 	if in.ModulePath != "" {
@@ -146,6 +159,7 @@ func (in *goadlcV2Cmd) Run() error {
 		for name, decl := range m.module.Decls {
 			baseGen := &baseGen{
 				cli:        in,
+				resolver:   resolver,
 				declMap:    declMap,
 				modulePath: modulePath,
 				midPath:    midPath,
@@ -201,6 +215,7 @@ func (bg *baseGen) Import(pkg string) (string, error) {
 
 type baseGen struct {
 	cli        *goadlcV2Cmd
+	resolver   snResolver
 	declMap    moduleMap[goadl.Decl]
 	modulePath string
 	midPath    string
@@ -422,15 +437,6 @@ func jsonPrimitiveDefaultToGo(primitive string, defVal interface{}) string {
 	return fmt.Sprintf(`%v`, defVal)
 }
 
-func (bg *baseGen) GoValueDebug(d_tp typeParam, t_gt goTypeExpr, te goadl.TypeExpr, val any) string {
-	return strings.Join([]string{toJ(d_tp), toJ(t_gt), toJ(te), toJ(val)}, "\n")
-}
-
-func toJ(v any) string {
-	b, _ := json.MarshalIndent(v, "", "  ")
-	return string(b)
-}
-
 func (bg *baseGen) GoValue(decl_tp typeParam, te goadl.TypeExpr, val any) string {
 	return goadl.Handle_TypeRef[string](
 		te.TypeRef.Branch,
@@ -493,13 +499,15 @@ func (bg *baseGen) GoValueScopedName(
 	val any,
 ) string {
 	gt := bg.GoType(te)
-	if len(decl_tp.ps) != len(gt.TypeParams.ps) {
+
+	if len(decl_tp.ps) != len(te.Parameters) {
 		panic("len(decl typeparams) != len(gt.TypeParams.ps)")
 	}
-	tpMap := map[string]string{}
+	tpMap := map[string]goadl.TypeExpr{}
 	for i, tp := range decl_tp.ps {
-		tpMap[tp] = gt.TypeParams.ps[i]
+		tpMap[tp] = te.Parameters[i]
 	}
+
 	decl, ok := bg.declMap[ref.ModuleName+"::"+ref.Name]
 	if !ok {
 		panic("decl not in map :" + ref.ModuleName + "::" + ref.Name)
@@ -549,29 +557,26 @@ func (bg *baseGen) GoValueScopedName(
 			if fld == nil {
 				panic(fmt.Errorf("unexpected branch - no type registered '%v'", k))
 			}
-			fte := bg.GoType(fld.TypeExpr)
-			// gte := bg.GoType(te)
-			// tp := typeParam{
-			// 	ps: slices.Map[string, string](fte.TypeParams.ps, func(a string) string {
-			// 		fld.TypeExpr.Parameters
-			// 	}),
-			// }
-			a0, _ := json.MarshalIndent(decl_tp, "", "  ")
-			a1, _ := json.MarshalIndent(fld, "", "  ")
-			a2, _ := json.MarshalIndent(fte, "", "  ")
-			_ = v
-			return []string{
-				fmt.Sprintf("%+v\n%+v\n%+v\n%+v",
-					string(a0), string(a1), string(a2), toJ(gt)),
+			monoTe := defunctionalizeTe(tpMap, fld.TypeExpr)
+			f_tp := gt.TypeParams
+			if f_tp0, ok := fld.TypeExpr.TypeRef.Branch.(goadl.TypeRefBranch_TypeParam); ok {
+				monoFtp, ok := tpMap[string(f_tp0)]
+				if !ok {
+					panic(fmt.Errorf("type param not found"))
+				}
+				monoGt := bg.GoType(monoFtp)
+				f_tp = typeParam{
+					ps: []string{monoGt.Type},
+				}
 			}
-
-			// return []string{fmt.Sprintf(`%sBranch_%s%s{%v}`,
-			// 	decl.Name,
-			// 	fld.Name,
-			// 	fte.TypeParams.RSide(),
-			// 	// v,
-			// 	bg.GoValue(decl_tp, fld.TypeExpr, v),
-			// )}
+			return []string{
+				fmt.Sprintf(`%sBranch_%s%s{%v}`,
+					decl.Name,
+					fld.Name,
+					f_tp.RSide(),
+					bg.GoValue(decl_tp, monoTe, v),
+				),
+			}
 		},
 		func(type_ goadl.TypeDef) []string {
 			return []string{"todo - type"}
@@ -612,3 +617,30 @@ func (elems kvBy) String() string {
 func (a kvBy) Len() int           { return len(a) }
 func (a kvBy) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a kvBy) Less(i, j int) bool { return a[i].k < a[j].v }
+
+func defunctionalizeTe(m map[string]goadl.TypeExpr, te goadl.TypeExpr) goadl.TypeExpr {
+
+	p0 := slices.Map[goadl.TypeExpr, goadl.TypeExpr](te.Parameters, func(a goadl.TypeExpr) goadl.TypeExpr {
+		return defunctionalizeTe(m, a)
+	})
+
+	if tp, ok := te.TypeRef.Branch.(goadl.TypeRefBranch_TypeParam); ok {
+		if te0, ok := m[string(tp)]; !ok {
+			panic(fmt.Errorf("type param not found"))
+			// return goadl.TypeExpr{
+			// 	TypeRef:    te.TypeRef,
+			// 	Parameters: p0,
+			// }
+		} else {
+			if len(te.Parameters) != 0 {
+				panic(fmt.Errorf("type param cannot have type params, not a concrete type"))
+			}
+			return te0
+		}
+	}
+
+	return goadl.TypeExpr{
+		TypeRef:    te.TypeRef,
+		Parameters: p0,
+	}
+}
