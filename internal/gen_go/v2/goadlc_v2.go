@@ -493,6 +493,13 @@ func (bg *baseGen) GoValueScopedName(
 	val any,
 ) string {
 	gt := bg.GoType(te)
+	if len(decl_tp.ps) != len(gt.TypeParams.ps) {
+		panic("len(decl typeparams) != len(gt.TypeParams.ps)")
+	}
+	tpMap := map[string]string{}
+	for i, tp := range decl_tp.ps {
+		tpMap[tp] = gt.TypeParams.ps[i]
+	}
 	decl, ok := bg.declMap[ref.ModuleName+"::"+ref.Name]
 	if !ok {
 		panic("decl not in map :" + ref.ModuleName + "::" + ref.Name)
