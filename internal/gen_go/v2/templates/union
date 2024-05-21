@@ -35,17 +35,6 @@ func Make_{{$name}}_{{.Name}}{{$decl.TypeParams.LSide}}(v {{$Type}}) {{$name}}{{
 {{end}}
 
 {{$htp := .TypeParams.AddParam "T"}}
-func Handle_Branch_{{$name}}{{$htp.LSide}}(
-	_in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}{{$Type := $G.GoType .TypeExpr}}
-	{{.Name}} func({{.Name}} {{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}) ({{$htp.Last}}, error),{{end}}
-) ({{$htp.Last}}, error) {
-	switch _b := _in.(type) {
-	{{range .Branches -}}{{$Type := $G.GoType .TypeExpr -}}
-	case {{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
-		return {{.Name}}(_b)
-	{{end}}}
-	panic("code gen error unhandled branch in : {{$name}}")
-}
 
 func Handle_{{$name}}{{$htp.LSide}}(
 	_in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}{{$Type := $G.GoType .TypeExpr}}

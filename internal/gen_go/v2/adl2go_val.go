@@ -269,7 +269,7 @@ func (bg *baseGen) goValueScopedName(
 					pkg,
 					decl.Name,
 					public(fld.Name),
-					f_tp.RSide()+fmt.Sprintf("/*%+v*/", monoTe),
+					f_tp.RSide(),
 					bg.goValue(ctx0, decl_tp, monoTe, v),
 				),
 			}
