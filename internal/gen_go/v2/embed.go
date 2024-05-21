@@ -84,7 +84,7 @@ type scopedDeclParams struct {
 	Fields     []fieldParams
 }
 
-type texprmonoParams scopedDeclParams
+type texprParams scopedDeclParams
 
 type headerParams struct {
 	Pkg string

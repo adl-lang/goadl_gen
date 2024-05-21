@@ -39,7 +39,7 @@ func makeAdlcAstArgs(in *goadlcV2Cmd, pathSuffix string) []string {
 	for _, dir := range in.Searchdir {
 		args = append(args, "--searchdir", dir)
 	}
-	args = append(args, in.Files...)
+	args = append(args, in.files...)
 	if in.Debug {
 		fmt.Fprintf(os.Stderr, "cmd '%s'\n", strings.Join(args, " "))
 	}

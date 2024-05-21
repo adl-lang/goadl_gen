@@ -1,13 +1,14 @@
 package gen_go_v2
 
 import (
+	"fmt"
 	"os"
 	"text/template"
 
 	"github.com/jpillora/opts"
 )
 
-func NewGenTypeExprV2() opts.Opts {
+func NewGenTypeExprV3() opts.Opts {
 	return opts.New(&texprV2Cmd{})
 }
 
@@ -19,7 +20,7 @@ func Texpr_{{.ADL}}() ATypeExpr[{{.Go}}] {
 	return ATypeExpr[{{.Go}}]{
 		Value: TypeExpr{
 			TypeRef: TypeRef{
-				Branch: TypeRefBranch_Primitive("{{.ADL}}"),
+				Branch: TypeRef_Primitive{V: "{{.ADL}}"},
 			},
 			Parameters: []TypeExpr{},
 		},
@@ -53,6 +54,18 @@ func (in *texprV2Cmd) Run() error {
 	if err != nil {
 		return err
 	}
+	fmt.Printf(`package goadl
+
+import (
+	goadl "github.com/adl-lang/goadl_rt/v3"
+	. "github.com/adl-lang/goadl_rt/v3/sys/adlast"
+)
+
+type ATypeExpr[T any] struct {
+	Value TypeExpr
+}
+
+`)
 	for _, te := range texprData {
 		t.Execute(os.Stdout, te)
 	}

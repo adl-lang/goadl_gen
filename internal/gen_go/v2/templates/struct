@@ -6,6 +6,15 @@ type {{$name}}{{$decl.TypeParams.LSide}} struct {
 {{end -}}
 }
 
+func New_{{$name}}{{.TypeParams.LSide}}(
+{{range .Fields}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},
+{{end -}}
+) {{$name}}{{.TypeParams.RSide}} {
+	return {{$name}}{{.TypeParams.RSide}}{
+{{range .Fields}}{{$type := $G.GoType .TypeExpr}}		{{.Name | public}}: {{.Name | lower | goEscape}},
+{{end}}	}
+}
+
 func Make_{{$name}}{{.TypeParams.LSide}}(
 {{range .Fields}}{{if not .HasDefault}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},
 {{end}}{{end -}}

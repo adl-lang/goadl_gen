@@ -1,4 +1,4 @@
-package exer01
+package out_test
 
 import (
 	"bytes"
@@ -8,14 +8,14 @@ import (
 	"adl_testing/exer01/simple_union"
 	"adl_testing/exer01/struct01"
 
-	goadl "github.com/adl-lang/goadl_rt/v2"
-	"github.com/adl-lang/goadl_rt/v2/adljson"
+	goadl "github.com/adl-lang/goadl_rt/v3"
+	adlast "github.com/adl-lang/goadl_rt/v3/sys/adlast"
 )
 
 func TestEnum(_ *testing.T) {
 	x := simple_union.Make_UnionOfVoids_A(struct{}{})
 	out := &bytes.Buffer{}
-	enc := adljson.NewEncoder(out, simple_union.Texpr_UnionOfVoids(), goadl.RESOLVER)
+	enc := goadl.NewEncoder(out, simple_union.Texpr_UnionOfVoids(), goadl.RESOLVER)
 	enc.Encode(x)
 	fmt.Printf("%s\n", out.String())
 }
@@ -23,7 +23,7 @@ func TestEnum(_ *testing.T) {
 func TestUnion(_ *testing.T) {
 	x := simple_union.Make_UnionOfPrimitives_A(42)
 	out := &bytes.Buffer{}
-	enc := adljson.NewEncoder(out, simple_union.Texpr_UnionOfPrimitives(), goadl.RESOLVER)
+	enc := goadl.NewEncoder(out, simple_union.Texpr_UnionOfPrimitives(), goadl.RESOLVER)
 	enc.Encode(x)
 	fmt.Printf("%s\n", out.String())
 }
@@ -40,24 +40,26 @@ func TestUnions(_ *testing.T) {
 	}
 	out := &bytes.Buffer{}
 	te := goadl.ATypeExpr[[]simple_union.UnionOfPrimitives]{
-		Value: goadl.TypeExpr{
-			TypeRef: goadl.TypeRef{
-				Branch: goadl.TypeRefBranch_Primitive("Vector"),
+		Value: adlast.TypeExpr{
+			TypeRef: adlast.TypeRef{
+				Branch: adlast.TypeRef_Primitive{V: "Vector"},
 			},
-			Parameters: []goadl.TypeExpr{
+			Parameters: []adlast.TypeExpr{
 				{
-					TypeRef: goadl.TypeRef{
-						Branch: goadl.TypeRefBranch_Reference{
-							ModuleName: "exer01.simple_union",
-							Name:       "UnionOfPrimitives",
+					TypeRef: adlast.TypeRef{
+						Branch: adlast.TypeRef_Reference{
+							V: adlast.ScopedName{
+								ModuleName: "exer01.simple_union",
+								Name:       "UnionOfPrimitives",
+							},
 						},
 					},
-					Parameters: []goadl.TypeExpr{},
+					Parameters: []adlast.TypeExpr{},
 				},
 			},
 		},
 	}
-	enc := adljson.NewEncoder(out, te, goadl.RESOLVER)
+	enc := goadl.NewEncoder(out, te, goadl.RESOLVER)
 	enc.Encode(xs)
 	fmt.Printf("%s\n", out.String())
 }
@@ -80,7 +82,7 @@ func TestStruct01(t *testing.T) {
 	}
 
 	out := &bytes.Buffer{}
-	enc := adljson.NewEncoder[struct01.Struct01](out, struct01.Texpr_Struct01(), goadl.RESOLVER)
+	enc := goadl.NewEncoder[struct01.Struct01](out, struct01.Texpr_Struct01(), goadl.RESOLVER)
 	enc.Encode(x)
 	fmt.Printf("%s\n", out.String())
 }

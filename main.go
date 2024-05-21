@@ -17,8 +17,8 @@ func main() {
 		EmbedGlobalFlagSet().
 		AddCommand(opts.New(&struct{}{}).Name("go").
 			AddCommand(gen_go.NewGenGo().Name("v1")).
-			AddCommand(gen_go_v2.NewGenGoV2().Name("v2")).
-			AddCommand(gen_go_v2.NewGenTypeExprV2().Name("v2_gen_texpr"))).
+			AddCommand(opts.New(gen_go_v2.NewGenGoV2(rflg)).Name("v2")).
+			AddCommand(gen_go_v2.NewGenTypeExprV3().Name("v3_gen_texpr"))).
 		Complete().
 		AddCommand(opts.New(&versionCmd{}).Name("version")).
 		Parse()
@@ -28,8 +28,8 @@ func main() {
 	}
 	err := op.Run()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
 		fmt.Fprintf(os.Stderr, "%s", op.Selected().Help())
+		fmt.Fprintf(os.Stderr, "  Error:\n    %s\n", err)
 		os.Exit(2)
 	}
 }

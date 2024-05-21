@@ -10,13 +10,6 @@ import (
 	"github.com/adl-lang/goadlc/internal/gen_go/fn/slices"
 )
 
-func new_typeParams(ps []string) typeParam {
-	return typeParam{
-		ps:    ps,
-		added: false,
-	}
-}
-
 func typeParamsFromDecl(decl goadl.Decl) typeParam {
 	return goadl.HandleP_DeclType[typeParam](
 		decl.Type.Branch,
@@ -47,27 +40,10 @@ func typeParamsFromDecl(decl goadl.Decl) typeParam {
 	)
 }
 
-// func usedTypeParams(te goadl.TypeExpr) typeParam {
-// 	lside := slices.FlatMap[goadl.TypeExpr, string](te.Parameters, func(a goadl.TypeExpr) []string {
-// 		goadl.Handle_P_TypeRef[[]string](
-// 			a.TypeRef.Branch,
-// 			func(primitive string) []string {
-// 				return []string{}
-// 			},
-// 			func(typeParam string) []string {
-// 				return []string{typeParam}
-// 			},
-// 			func(reference goadl.ScopedName) []string {
-
-// 			},
-// 		)
-// 	})
-// }
-
 type typeParam struct {
-	ps []string
-	// isTypeParam bool
-	added bool
+	ps     []string
+	added  bool
+	stdlib bool
 }
 
 func (tp typeParam) MarshalJSON() ([]byte, error) {
@@ -118,27 +94,21 @@ func (tp typeParam) LSide() string {
 	return "[" + strings.Join(slices.Map(tp.ps, func(e string) string { return e + " any" }), ", ") + "]"
 }
 func (tp typeParam) RSide() string {
-	// if tp.isTypeParam {
-	// 	return ""
-	// }
 	if len(tp.ps) == 0 {
 		return ""
 	}
 	return "[" + strings.Join(tp.ps, ",") + "]"
 }
 func (tp typeParam) TexprArgs() string {
-	// if tp.isTypeParam {
-	// 	return ""
-	// }
 	if len(tp.ps) == 0 {
 		return ""
+	}
+	if tp.stdlib {
+		return strings.Join(slices.Map(tp.ps, func(e string) string { return fmt.Sprintf("%s ATypeExpr[%s]", strings.ToLower(e), e) }), ", ")
 	}
 	return strings.Join(slices.Map(tp.ps, func(e string) string { return fmt.Sprintf("%s goadl.ATypeExpr[%s]", strings.ToLower(e), e) }), ", ")
 }
 func (tp typeParam) TexprValues() string {
-	// if tp.isTypeParam {
-	// 	return ""
-	// }
 	if len(tp.ps) == 0 {
 		return ""
 	}

@@ -1,18 +1,18 @@
-package struct01
+package out_test
 
 import (
+	"adl_testing/exer01/struct01"
 	"bytes"
 	"fmt"
 	"reflect"
 	"testing"
 
-	goadl "github.com/adl-lang/goadl_rt/v2"
-	"github.com/adl-lang/goadl_rt/v2/adljson"
+	goadl "github.com/adl-lang/goadl_rt/v3"
 )
 
 func TestXxx(t *testing.T) {
 	a := "a"
-	x := Struct01{
+	x := struct01.Struct01{
 		A: struct{}{},
 		B: 41,
 		C: "",
@@ -22,7 +22,7 @@ func TestXxx(t *testing.T) {
 		E: []string{"a", "b", "c"},
 		F: map[string][]string{"a": {"z"}, "b": {"x"}, "c": {"y"}},
 		I: &a,
-		J: B{
+		J: struct01.B{
 			A: "sfd",
 		},
 	}
@@ -34,7 +34,7 @@ func TestXxx(t *testing.T) {
 	fmt.Printf("%v\n", f2.IsZero())
 
 	out := &bytes.Buffer{}
-	enc := adljson.NewEncoder[Struct01](out, Texpr_Struct01(), goadl.RESOLVER)
+	enc := goadl.NewEncoder[struct01.Struct01](out, struct01.Texpr_Struct01(), goadl.RESOLVER)
 	enc.Encode(x)
 	fmt.Printf("%s\n", string(out.Bytes()))
 }

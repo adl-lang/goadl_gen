@@ -7,8 +7,9 @@ import (
 )
 
 type imports struct {
-	specs []importSpec
-	used  map[string]bool // keyed on import path
+	importMap map[string]importSpec
+	specs     []importSpec
+	used      map[string]bool // keyed on import path
 }
 
 type importSpec struct {
@@ -17,8 +18,14 @@ type importSpec struct {
 	Name    string
 }
 
-func newImports(reserved []importSpec) imports {
-	im := imports{used: make(map[string]bool)}
+func newImports(
+	reserved []importSpec,
+	importMap map[string]importSpec,
+) imports {
+	im := imports{
+		used:      make(map[string]bool),
+		importMap: importMap,
+	}
 	for i := range reserved {
 		spec := reserved[i]
 		if !spec.Aliased {
@@ -54,7 +61,24 @@ func (i *imports) byName(name string) (spec importSpec, ok bool) {
 	return importSpec{}, false
 }
 
-func (i *imports) add(path string) (name string) {
+func (i *imports) addModule(module string, modulePath, midPath string) (name string) {
+	if spec, ok := i.importMap[module]; ok {
+		if i.used[spec.Path] {
+			return spec.Name
+		}
+		spec0 := i.reserveSpec(spec)
+		i.used[spec0.Path] = true
+		return spec0.Name
+	}
+	if midPath != "" {
+		pkg := modulePath + "/" + midPath + "/" + strings.ReplaceAll(module, ".", "/")
+		return i.addPath(pkg)
+	}
+	pkg := modulePath + "/" + strings.ReplaceAll(module, ".", "/")
+	return i.addPath(pkg)
+}
+
+func (i *imports) addPath(path string) (name string) {
 	spec := i.reserve(path)
 	i.used[spec.Path] = true
 	return spec.Name
@@ -69,6 +93,13 @@ func (i *imports) reserve(path string) importSpec {
 		Path:    path,
 		Name:    pkgFromImport(path),
 		Aliased: false,
+	}
+	return i.reserveSpec(spec)
+}
+
+func (i *imports) reserveSpec(spec importSpec) importSpec {
+	if ispec, ok := i.byPath(spec.Path); ok {
+		return ispec
 	}
 	if _, found := i.byName(spec.Name); found {
 		base := spec.Name

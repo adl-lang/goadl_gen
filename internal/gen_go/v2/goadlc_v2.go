@@ -1,25 +1,23 @@
 package gen_go_v2
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"go/format"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
-	"reflect"
-	"sort"
+	goslices "slices"
 	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v2"
 	"github.com/adl-lang/goadlc/internal/fn/slices"
+	"github.com/adl-lang/goadlc/internal/root"
 	"github.com/golang/glog"
-	"github.com/jpillora/opts"
-	"golang.org/x/mod/modfile"
 )
 
-func NewGenGoV2() opts.Opts {
+func NewGenGoV2(rt *root.RootObj) any {
 	wk, err := os.MkdirTemp("", "goadlc-")
 	if err != nil {
 		glog.Warningf(`os.MkdirTemp("", "goadlc-") %v`, err)
@@ -28,34 +26,150 @@ func NewGenGoV2() opts.Opts {
 	if err != nil {
 		glog.Warningf(`error getting current working directory %v`, err)
 	}
-	return opts.New(&goadlcV2Cmd{
+	return &goadlcV2Cmd{
+		rt:         rt,
 		WorkingDir: wk,
 		Outputdir:  cwd,
-	})
+		ModuleMap:  []ImportMap{},
+		GenAstInfo: []GenAstInfo{},
+		GoAdlPath:  "github.com/adl-lang/goadl_rt/v2",
+	}
 }
 
 type goadlcV2Cmd struct {
+	rt          *root.RootObj
 	WorkingDir  string
-	Searchdir   []string `opts:"short=I" help:"Add the specifed directory to the ADL searchpath"`
-	Outputdir   string   `opts:"short=O" help:"Set the directory where generated code is written "`
-	MergeAdlext string   `help:"Add the specifed adl file extension to merged on loading"`
-	Debug       bool     `help:"Print extra diagnostic information, especially about files being read/written"`
-	NoGoFmt     bool     `help:"Don't run 'go fmt' on the generated files"`
-	ModulePath  string   `help:"The path of the Go module for the generated code. Overrides the module-path from the '--go-mod-file' flag."`
-	GoModFile   string   `help:"Path of a go.mod file. If the file exists, the module-path is used for generated imports."`
+	Searchdir   []string    `opts:"short=I" help:"Add the specifed directory to the ADL searchpath"`
+	Outputdir   string      `opts:"short=O" help:"Set the directory where generated code is written "`
+	MergeAdlext string      `help:"Add the specifed adl file extension to merged on loading"`
+	Debug       bool        `help:"Print extra diagnostic information, especially about files being read/written"`
+	NoGoFmt     bool        `help:"Don't run 'go fmt' on the generated files"`
+	GoAdlPath   string      `help:"The path to the Go ADL runtime import"`
+	ModulePath  string      `help:"The path of the Go module for the generated code. Overrides the module-path from the '--go-mod-file' flag."`
+	GoModFile   string      `help:"Path of a go.mod file. If the file exists, the module-path is used for generated imports."`
+	ExcludeAst  bool        `opts:"short=t" help:"Don't generate type expr, scoped decl and init registration functions"`
+	ModuleMap   ImportMaps  `opts:"short=M" help:"Mapping from ADL module name to Go import specifiction"`
+	GenAstInfo  GenAstInfos `help:"Mapping from ADL module name to details on where to generate ast info. Of the form [modulename:goPkg:outputFile]"`
+	StdLibGen   bool        `help:"Used for bootstrapping, only use when generating the sys.aldast & sys.types modules"`
+
 	// NoOverwrite    bool     `help:"Don't update files that haven't changed"`
 	// Manifest       string   `help:"Write a manifest file recording generated files"`
 	// CombinedOutput string   `help:"The json file to which all adl modules will be written"`
-	SkipGenTexpr      bool     `opts:"short=t" help:"Don't generate type expr functions"`
-	SkipGenScopedDecl bool     `opts:"short=s" help:"Don't generate scoped decl and init registration functions"`
-	Files             []string `opts:"mode=arg"`
+
+	Files []string `opts:"mode=arg" help:"File or pattern"`
+	files []string
+}
+
+type GenAstInfos []GenAstInfo
+
+type GenAstInfo struct {
+	ModuleName    string
+	Pkg           string
+	RelOutputFile string
+}
+
+func (ims *GenAstInfos) Set(text string) error {
+	panic("method only here to make opts happy")
+}
+
+func (im *GenAstInfo) Set(text string) error {
+	parts := strings.Split(text, `:`)
+	lp := len(parts)
+	if lp != 3 {
+		return fmt.Errorf("expecting module to go map of the form [modulename:goPkg:outputFile]")
+	}
+	im.ModuleName = parts[0]
+	im.Pkg = parts[1]
+	im.RelOutputFile = parts[2]
+	return nil
+}
+
+type ImportMaps []ImportMap
+
+func (ims *ImportMaps) Set(text string) error {
+	panic("method only here to make opts happy")
+}
+
+type ImportMap struct {
+	ModuleName   string
+	Name         string
+	Path         string
+	RelOutputDir *string `json:",omitempty"`
+	alias        bool
+}
+
+func (im *ImportMap) Set(text string) error {
+	parts := strings.Split(text, `:`)
+	lp := len(parts)
+	if lp < 2 || lp > 4 {
+		return fmt.Errorf("expecting module to go map of the form [module:path] or [module:name:path] or [module:name:path:rel_output_dir]")
+	}
+	im.ModuleName = parts[0]
+	if lp == 2 {
+		im.Path = parts[1]
+		im.Name = pkgFromImport(im.Path)
+	}
+	if lp >= 3 {
+		im.Name = parts[1]
+		im.Path = parts[2]
+		im.alias = true
+	}
+	if lp == 4 {
+		im.RelOutputDir = &parts[3]
+	}
+	return nil
 }
 
 type snResolver func(sn goadl.ScopedName) (*goadl.Decl, bool)
 
+type baseGen struct {
+	cli        *goadlcV2Cmd
+	resolver   snResolver
+	declMap    moduleMap[goadl.Decl]
+	modulePath string
+	midPath    string
+	moduleName string
+	// name       string
+	imports   imports
+	goAdlPath string
+	stdLibGen bool
+}
+
 func (in *goadlcV2Cmd) Run() error {
+	in.rt.Config(in)
+
+	importMap := map[string]importSpec{}
+	for _, im := range in.ModuleMap {
+		if _, ok := importMap[im.ModuleName]; ok {
+			return fmt.Errorf("duplicate module in --module-map '%s'", im.ModuleName)
+		}
+		importMap[im.ModuleName] = importSpec{
+			Path:    im.Path,
+			Name:    im.Name,
+			Aliased: im.alias,
+		}
+	}
+
+	cwd, err := os.Getwd()
+	dFs := os.DirFS(cwd)
+	if err != nil {
+		return fmt.Errorf("can't get cwd : %v", err)
+	}
 	if len(in.Files) == 0 {
-		return fmt.Errorf("no files specified")
+		return fmt.Errorf("no file or pattern specified")
+	}
+	for _, p := range in.Files {
+		matchs, err := fs.Glob(dFs, p)
+		if err != nil {
+			return fmt.Errorf("error globbing file : %v", err)
+		}
+		in.files = append(in.files, matchs...)
+	}
+	if in.Debug {
+		fmt.Fprintf(os.Stderr, "found files:\n")
+		for _, f := range in.files {
+			fmt.Fprintf(os.Stderr, "  %v\n", f)
+		}
 	}
 
 	jb := func(fd io.Reader) (moduleMap[goadl.Module], moduleMap[goadl.Decl], error) {
@@ -73,12 +187,18 @@ func (in *goadlcV2Cmd) Run() error {
 		}
 		return combinedAst, declMap, nil
 	}
+
 	modules := []moduleTuple[goadl.Module]{}
 	combinedAst, declMap, err := loadAdl(in, &modules, jb)
 	_ = combinedAst
 	// _ = declMap
 	if err != nil {
 		os.Exit(1)
+	}
+
+	modulePath, midPath, err := in.modpath()
+	if err != nil {
+		return err
 	}
 
 	resolver := func(sn goadl.ScopedName) (*goadl.Decl, bool) {
@@ -92,136 +212,209 @@ func (in *goadlcV2Cmd) Run() error {
 		}
 		return &decl, true
 	}
-	modulePath := ""
-	midPath := ""
-	if in.ModulePath != "" {
-		modulePath = in.ModulePath
-	} else {
-		if in.GoModFile == "" {
-			dir := in.Outputdir
-			goMod := filepath.Join(dir, "go.mod")
-			last := false
-			if in.Outputdir == "" {
-				last = true
-			}
-			for {
-				if in.Debug {
-					fmt.Fprintf(os.Stderr, "searching for module-path in go.mod file. go.mod:%s\n", goMod)
-				}
-
-				if gms, err := os.Stat(goMod); err == nil && !gms.IsDir() {
-					in.GoModFile = goMod
-					break
-				}
-				dir0, file := filepath.Split(dir)
-				fmt.Fprintf(os.Stderr, ">>> '%s' '%s'\n", dir0, file)
-				dir = dir0
-				if last {
-					break
-				}
-				if dir == "" {
-					last = true
-				}
-				goMod = filepath.Join(dir, "go.mod")
-				midPath = filepath.Join(midPath, file)
-			}
-			in.GoModFile = goMod
-			if in.Debug {
-				fmt.Fprintf(os.Stderr, "looking for module-path in go.mod file. go.mod:%s\n", in.GoModFile)
-			}
-		}
-		if gms, err := os.Stat(in.GoModFile); err == nil {
-			if !gms.IsDir() {
-				if modbufm, err := os.ReadFile(in.GoModFile); err == nil {
-					modulePath = modfile.ModulePath(modbufm)
-					if in.Debug {
-						fmt.Fprintf(os.Stderr, "using module-path found in go.mod file. module-path:%s\n", modulePath)
-					}
-				} else {
-					return fmt.Errorf("module-path needed. Not specified in --module-path and couldn't be found in a go.mod file")
-				}
-			}
-		} else {
-			return fmt.Errorf("module-path required. Not specified in --module-path and no go.mod file found in output directory")
-		}
-	}
 
 	for _, m := range modules {
-		modCodeGen := ModuleCodeGen{}
-		modCodeGen.Directory = strings.Split(m.name, ".")
-		path := in.Outputdir + "/" + strings.Join(modCodeGen.Directory, "/")
-		if _, err = os.Open(path); err != nil {
-			err = os.MkdirAll(path, os.ModePerm)
-			if err != nil {
-				glog.Fatalf("mkdir -p %s, error: %v", path, err)
+		modCodeGenDir := strings.Split(m.name, ".")
+		// modCodeGenPkg := pkgFromImport(strings.ReplaceAll(m.name, ".", "/"))
+		modCodeGenPkg := modCodeGenDir[len(modCodeGenDir)-1]
+		path := in.Outputdir + "/" + strings.Join(modCodeGenDir, "/")
+		for _, mm := range in.ModuleMap {
+			if mm.ModuleName == m.name {
+				modCodeGenPkg = mm.Name
+				if mm.RelOutputDir != nil {
+					path = filepath.Join(in.Outputdir, *mm.RelOutputDir)
+				}
 			}
 		}
-		for name, decl := range m.module.Decls {
-			baseGen := &baseGen{
-				cli:        in,
-				resolver:   resolver,
-				declMap:    declMap,
-				modulePath: modulePath,
-				midPath:    midPath,
-				moduleName: m.name,
-				name:       name,
-				imports:    newImports(reservedImports),
+		// baseGen := in.newBaseGen(resolver, declMap, importMap, modulePath, midPath, m.name)
+		declBody := &generator{
+			baseGen: in.newBaseGen(resolver, declMap, importMap, modulePath, midPath, m.name),
+			rr:      templateRenderer{t: templates},
+		}
+		astBody := &generator{
+			baseGen: in.newBaseGen(resolver, declMap, importMap, modulePath, midPath, m.name),
+			rr:      templateRenderer{t: templates},
+		}
+		declsNames := []string{}
+		for k := range m.module.Decls {
+			declsNames = append(declsNames, k)
+		}
+		goslices.Sort(declsNames)
+		for _, k := range declsNames {
+			decl := m.module.Decls[k]
+			declBody.generalDeclV3(declBody, decl)
+			if !in.ExcludeAst {
+				astBody.generalTexpr(astBody, decl)
+				astBody.generalReg(astBody, decl)
 			}
-			unformatted := baseGen.generalDeclV2(modCodeGen, decl)
-			var formatted []byte
-			if !in.NoGoFmt {
-				formatted, err = format.Source(unformatted)
-				if err != nil {
-					formatted = unformatted
+		}
+		err := in.writeFile(m.name, modCodeGenPkg, declBody, filepath.Join(path, modCodeGenDir[len(modCodeGenDir)-1]+".go"), in.NoGoFmt, false)
+		if err != nil {
+			return err
+		}
+		if !in.ExcludeAst {
+			override := false
+			for _, astinfo := range in.GenAstInfo {
+				if astinfo.ModuleName == m.name {
+					err := in.writeFile(m.name, astinfo.Pkg, astBody, filepath.Join(in.Outputdir, astinfo.RelOutputFile), in.NoGoFmt, true)
+					if err != nil {
+						return err
+					}
+					override = true
+					break
 				}
-			} else {
-				formatted = unformatted
 			}
-			var fd *os.File = nil
-			var err error
-			fname := path + "/" + name + ".go"
-			fd, err = os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-			fd.Truncate(0)
-			fd.Seek(0, 0)
-			defer func() {
-				fd.Sync()
-				fd.Close()
-			}()
-			if err != nil {
-				glog.Fatalf("open %s, error: %v", fname, err)
+			if !override {
+				err := in.writeFile(m.name, modCodeGenPkg, astBody, filepath.Join(path, modCodeGenDir[len(modCodeGenDir)-1]+"_ast.go"), in.NoGoFmt, true)
+				if err != nil {
+					return err
+				}
 			}
-			fd.Write(formatted)
 		}
 	}
 	return nil
 }
 
-var reservedImports []importSpec = []importSpec{
-	{Path: "encoding/json"},
-	{Path: "reflect"},
-	{Path: "strings"},
-	{Path: "fmt"},
-	{Path: "github.com/adl-lang/goadl_rt/v2", Aliased: true, Name: "goadl"},
-}
+func (in *goadlcV2Cmd) newBaseGen(
+	resolver func(sn goadl.ScopedName) (*goadl.Decl, bool),
+	declMap moduleMap[goadl.Decl],
+	importMap map[string]importSpec,
+	modulePath, midPath string,
+	moduleName string,
+	//  name string,
 
-func (bg *baseGen) Import(pkg string) (string, error) {
-	if spec, ok := bg.imports.byName(pkg); !ok {
-		return "", fmt.Errorf("unknown import %s", pkg)
-	} else {
-		bg.imports.add(spec.Path)
-		return spec.Name, nil
+) *baseGen {
+	imports := newImports(
+		in.reservedImports(),
+		importMap,
+	)
+	return &baseGen{
+		cli:        in,
+		resolver:   resolver,
+		declMap:    declMap,
+		modulePath: modulePath,
+		midPath:    midPath,
+		moduleName: moduleName,
+		// name:       name,
+		imports:   imports,
+		goAdlPath: in.GoAdlPath,
+		stdLibGen: in.StdLibGen,
 	}
 }
 
-type baseGen struct {
-	cli        *goadlcV2Cmd
-	resolver   snResolver
-	declMap    moduleMap[goadl.Decl]
-	modulePath string
-	midPath    string
-	moduleName string
-	name       string
-	imports    imports
+func (in *goadlcV2Cmd) writeFile(
+	moduleName string,
+	modCodeGenPkg string,
+	body *generator,
+	path string,
+	noGoFmt bool,
+	genAst bool,
+) error {
+	var err error
+	dir, file := filepath.Split(path)
+	_ = file
+
+	if d, err := os.Stat(dir); err != nil {
+		err = os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	} else {
+		if !d.IsDir() {
+			return fmt.Errorf("directory expected %v", dir)
+		}
+	}
+
+	header := &generator{
+		baseGen: body.baseGen,
+		rr:      templateRenderer{t: templates},
+	}
+	header.rr.Render(headerParams{
+		Pkg: modCodeGenPkg,
+	})
+	useImports := []importSpec{}
+	for _, spec := range body.imports.specs {
+		if body.imports.used[spec.Path] {
+			useImports = append(useImports, spec)
+		}
+	}
+	if in.StdLibGen && genAst {
+		if moduleName == "sys.adlast" {
+			useImports = append(useImports, importSpec{
+				Path:    in.GoAdlPath + "/sys/adlast",
+				Name:    ".",
+				Aliased: true,
+			})
+		}
+		if moduleName == "sys.types" {
+			useImports = append(useImports, importSpec{
+				Path:    in.GoAdlPath + "/sys/types",
+				Name:    ".",
+				Aliased: true,
+			})
+		}
+	}
+
+	header.rr.Render(importsParams{
+		Imports: useImports,
+	})
+	header.rr.buf.Write(body.rr.Bytes())
+	unformatted := header.rr.Bytes()
+
+	var formatted []byte
+	if !noGoFmt {
+		formatted, err = format.Source(unformatted)
+		if err != nil {
+			formatted = unformatted
+		}
+	} else {
+		formatted = unformatted
+	}
+	var fd *os.File = nil
+	fd, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	err = fd.Truncate(0)
+	if err != nil {
+		return err
+	}
+	_, err = fd.Seek(0, 0)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		fd.Sync()
+		fd.Close()
+	}()
+	_, err = fd.Write(formatted)
+	if in.Debug {
+		fmt.Fprintf(os.Stderr, "wrote file %s\n", path)
+	}
+	return err
+}
+
+func (in *goadlcV2Cmd) reservedImports() []importSpec {
+	return []importSpec{
+		{Path: "encoding/json"},
+		{Path: "reflect"},
+		{Path: "strings"},
+		{Path: "fmt"},
+		{Path: in.GoAdlPath, Aliased: true, Name: "goadl"},
+		{Path: in.GoAdlPath + "/sys/adlast", Aliased: true, Name: "adlast"},
+	}
+}
+
+func (bg *baseGen) Import(pkg string) (string, error) {
+	if bg.stdLibGen && pkg == "goadl" {
+		return "", nil
+	}
+	if spec, ok := bg.imports.byName(pkg); !ok {
+		return "", fmt.Errorf("unknown import %s", pkg)
+	} else {
+		bg.imports.addPath(spec.Path)
+		return spec.Name + ".", nil
+	}
 }
 
 type generator struct {
@@ -229,137 +422,103 @@ type generator struct {
 	rr templateRenderer
 }
 
-// type typeMapField goadl.Field
-
-// func (f typeMapField) TpArgs() string {
-// 	if _, ok := f.TypeExpr.TypeRef.Branch.(goadl.TypeRefBranch_TypeParam); ok {
-// 		return "[any]"
-// 	}
-// 	if len(f.TypeExpr.Parameters) == 0 {
-// 		return ""
-// 	}
-// 	return "[any" + strings.Repeat(",any", len(f.TypeExpr.Parameters)-1) + "]"
-// }
-
-func (base *baseGen) generalDeclV2(
-	modCodeGen ModuleCodeGen,
+func (base *baseGen) generalDeclV3(
+	in *generator,
 	decl goadl.Decl,
-) []byte {
-	header := &generator{
-		baseGen: base,
-		rr:      templateRenderer{t: templates},
-	}
-	body := &generator{
-		baseGen: base,
-		rr:      templateRenderer{t: templates},
-	}
-	goadl.HandleE_DeclType[any](
+) {
+	goadl.Handle_DeclType[any](
 		decl.Type.Branch,
-		body.generateStruct,
-		body.generateUnion,
-		body.generateTypeAlias,
-		body.generateNewType,
+		func(s goadl.Struct) any {
+			in.rr.Render(structParams{
+				G:          in,
+				Name:       decl.Name,
+				TypeParams: typeParam{s.TypeParams, false, base.stdLibGen},
+				Fields: slices.Map(s.Fields, func(f goadl.Field) fieldParams {
+					return makeFieldParam(f)
+				}),
+			})
+			return nil
+		},
+		func(u goadl.Union) any {
+			in.rr.Render(unionParams{
+				G:          in,
+				Name:       decl.Name,
+				TypeParams: typeParam{u.TypeParams, false, base.stdLibGen},
+				Branches: slices.Map[goadl.Field, fieldParams](u.Fields, func(f goadl.Field) fieldParams {
+					return makeFieldParam(f)
+				}),
+			})
+			return nil
+		},
+		func(td goadl.TypeDef) any {
+			in.rr.Render(typeAliasParams{
+				G:          in,
+				Name:       decl.Name,
+				TypeParams: typeParam{td.TypeParams, false, base.stdLibGen},
+				RType:      in.GoType(td.TypeExpr),
+			})
+			return nil
+		},
+		func(nt goadl.NewType) any {
+			in.rr.Render(newTypeParams{
+				G:          in,
+				Name:       decl.Name,
+				TypeParams: typeParam{nt.TypeParams, false, base.stdLibGen},
+				RType:      in.GoType(nt.TypeExpr),
+			})
+			return nil
+		},
+		nil,
 	)
-
-	if !base.cli.SkipGenTexpr {
-		body.rr.Render(texprmonoParams{
-			G:          body,
-			ModuleName: base.moduleName,
-			// Name:       goEscape(base.name),
-			// TypeParams: getTypeParams(decl),
-			Name:       base.name,
-			TypeParams: typeParamsFromDecl(decl),
-			Decl:       decl,
-		})
-	}
-	if !base.cli.SkipGenScopedDecl {
-		body.rr.Render(scopedDeclParams{
-			G:          body,
-			ModuleName: base.moduleName,
-			Name:       base.name,
-			Decl:       decl,
-			TypeParams: typeParamsFromDecl(decl),
-			Fields: goadl.Handle_DeclType[[]fieldParams](
-				decl.Type.Branch,
-				func(struct_ goadl.Struct) []fieldParams {
-					return []fieldParams{}
-					// struct_.Fields[0].SerializedName
-					// return struct_.Fields
-				},
-				func(u goadl.Union) []fieldParams {
-					return slices.Map[goadl.Field, fieldParams](u.Fields, func(f goadl.Field) fieldParams {
-						return makeFieldParam(f)
-						// return fieldParams{
-						// 	Field:      f,
-						// 	HasDefault: f.Default.Just != nil,
-						// 	Just:       *f.Default.Just,
-						// 	// Name:           goEscape(f.Name),
-						// 	// SerializedName: f.SerializedName,
-						// 	// TypeParams:     new_typeParams(u.TypeParams),
-						// 	// Type:           base.GoType(f.TypeExpr),
-						// }
-					})
-				},
-				func(type_ goadl.TypeDef) []fieldParams {
-					return []fieldParams{}
-				},
-				func(newtype_ goadl.NewType) []fieldParams {
-					return []fieldParams{}
-				},
-				nil,
-			),
-		})
-	}
-
-	header.rr.Render(headerParams{
-		Pkg: modCodeGen.Directory[len(modCodeGen.Directory)-1],
-	})
-	imports := []importSpec{}
-	for _, spec := range body.imports.specs {
-		if body.imports.used[spec.Path] {
-			imports = append(imports, spec)
-		}
-	}
-	header.rr.Render(importsParams{
-		// Rt: "github.com/adl-lang/goadl_rt/v2",
-		// RtAs: "goadl",
-		Imports: imports,
-	})
-	header.rr.buf.Write(body.rr.Bytes())
-	return header.rr.Bytes()
 }
 
-func (*generator) JsonEncode(val any) string {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	err := enc.Encode(val)
-	if err != nil {
-		panic(err)
-	}
-	return string(bytes.Trim(buf.Bytes(), "\n"))
-	// return  buf.String()
+func (base *baseGen) generalTexpr(
+	body *generator,
+	decl goadl.Decl,
+) {
+	tp := typeParamsFromDecl(decl)
+	tp.stdlib = base.stdLibGen
+	body.rr.Render(texprParams{
+		G:          body,
+		ModuleName: base.moduleName,
+		Name:       decl.Name,
+		TypeParams: tp,
+		Decl:       decl,
+	})
 }
 
-func (in *generator) generateStruct(s goadl.DeclTypeBranch_Struct_) (interface{}, error) {
-	in.rr.Render(structParams{
-		G: in,
-		// Name:       goEscape(in.name),
-		Name:       in.name,
-		TypeParams: typeParam{s.TypeParams, false},
-		Fields: slices.Map(s.Fields, func(f goadl.Field) fieldParams {
-			return makeFieldParam(f)
-			// fp := fieldParams{
-			// 	// Name:           goEscape(f.Name),
-			// 	// SerializedName: f.SerializedName,
-			// 	// TypeParams:     typeParam{s.TypeParams, false},
-			// 	// Type:           in.GoType(f.TypeExpr),
-			// 	Field:      f,
-			// 	HasDefault: f.Default.Just != nil,
-			// }
-			// return fp
-		}),
+func (base *baseGen) generalReg(
+	body *generator,
+	decl goadl.Decl,
+) {
+	tp := typeParamsFromDecl(decl)
+	body.rr.Render(scopedDeclParams{
+		G:          body,
+		ModuleName: base.moduleName,
+		Name:       decl.Name,
+		Decl:       decl,
+		TypeParams: tp,
+		// this is needed to generate registration info for encoding of branches
+		// only needed for unions
+		Fields: goadl.Handle_DeclType[[]fieldParams](
+			decl.Type.Branch,
+			func(struct_ goadl.Struct) []fieldParams {
+				return []fieldParams{}
+			},
+			func(u goadl.Union) []fieldParams {
+				return slices.Map[goadl.Field, fieldParams](u.Fields, func(f goadl.Field) fieldParams {
+					return makeFieldParam(f)
+				})
+			},
+			func(type_ goadl.TypeDef) []fieldParams {
+				return []fieldParams{}
+			},
+			func(newtype_ goadl.NewType) []fieldParams {
+				return []fieldParams{}
+			},
+			nil,
+		),
 	})
-	return nil, nil
 }
 
 func makeFieldParam(f goadl.Field) fieldParams {
@@ -377,50 +536,6 @@ func (in *generator) ToTitle(s string) string {
 	return strings.ToTitle(s)
 }
 
-func (in *generator) generateUnion(u goadl.DeclTypeBranch_Union_) (interface{}, error) {
-	in.rr.Render(unionParams{
-		G: in,
-		// Name:       goEscape(in.name),
-		Name:       in.name,
-		TypeParams: new_typeParams(u.TypeParams),
-		Branches: slices.Map[goadl.Field, fieldParams](u.Fields, func(f goadl.Field) fieldParams {
-			return makeFieldParam(f)
-			// return fieldParams{
-			// 	Field:      f,
-			// 	HasDefault: f.Default.Just != nil,
-			// 	Just:       *f.Default.Just,
-			// 	// Name:           goEscape(f.Name),
-			// 	// SerializedName: f.SerializedName,
-			// 	// TypeParams:     new_typeParams(u.TypeParams),
-			// 	// Type:           in.GoType(f.TypeExpr),
-			// }
-		}),
-	})
-	return nil, nil
-}
-
-func (in *generator) generateTypeAlias(td goadl.DeclTypeBranch_Type_) (interface{}, error) {
-	in.rr.Render(typeAliasParams{
-		G: in,
-		// Name:       goEscape(in.name),
-		Name:       in.name,
-		TypeParams: new_typeParams(td.TypeParams),
-		RType:      in.GoType(td.TypeExpr),
-	})
-	return nil, nil
-}
-
-func (in *generator) generateNewType(nt goadl.DeclTypeBranch_Newtype_) (interface{}, error) {
-	in.rr.Render(newTypeParams{
-		G: in,
-		// Name:       goEscape(in.name),
-		Name:       in.name,
-		TypeParams: new_typeParams(nt.TypeParams),
-		RType:      in.GoType(nt.TypeExpr),
-	})
-	return nil, nil
-}
-
 func jsonPrimitiveDefaultToGo(primitive string, defVal interface{}) string {
 	switch defVal.(type) {
 	case string:
@@ -428,210 +543,6 @@ func jsonPrimitiveDefaultToGo(primitive string, defVal interface{}) string {
 	}
 	return fmt.Sprintf(`%v`, defVal)
 }
-
-func (bg *baseGen) GoValue(decl_tp typeParam, te goadl.TypeExpr, val any) string {
-	defer func() {
-		r := recover()
-		if r != nil {
-			fmt.Fprintf(os.Stderr, "ERROR in GoValue %v\n", r)
-			panic(r)
-		}
-	}()
-	return bg.goValue(decl_tp, te, val)
-}
-
-func (bg *baseGen) goValue(decl_tp typeParam, te goadl.TypeExpr, val any) string {
-	return goadl.Handle_TypeRef[string](
-		te.TypeRef.Branch,
-		func(primitive string) string {
-			return bg.goValuePrimitive(decl_tp, te, primitive, val)
-		},
-		func(typeParam string) string {
-			// return typeParam
-			panic("???GoValue:typeParam " + typeParam)
-		},
-		func(ref goadl.ScopedName) string {
-			return bg.goValueScopedName(decl_tp, te, ref, val)
-		},
-	)
-}
-
-func (bg *baseGen) goValuePrimitive(decl_tp typeParam, te goadl.TypeExpr, primitive string, val any) string {
-	switch primitive {
-	case "Int8", "Int16", "Int32", "Int64",
-		"Word8", "Word16", "Word32", "Word64",
-		"Bool", "Float", "Double":
-		return fmt.Sprintf("%v", val)
-	case "String":
-		return fmt.Sprintf(`"%s"`, val)
-	// case "ByteVector":
-	case "Void":
-		return "nil"
-	case "Json":
-		panic("todo")
-	case "Vector":
-		rv := reflect.ValueOf(val)
-		vs := make([]string, rv.Len())
-		for i := 0; i < rv.Len(); i++ {
-			v := rv.Index(i)
-			vs[i] = bg.goValue(decl_tp, te.Parameters[0], v.Interface())
-		}
-		if len(vs) == 0 {
-			return fmt.Sprintf("[]%s{}", bg.GoType(te.Parameters[0]))
-		}
-		vss := strings.Join(vs, ",\n")
-		return fmt.Sprintf("[]%s{\n%s,\n}", bg.GoType(te.Parameters[0]), vss)
-	case "StringMap":
-		m := val.(map[string]any)
-		vs := make(kvBy, 0, len(m))
-		for k, v := range m {
-			vs = append(vs, kv{k, bg.goValue(decl_tp, te.Parameters[0], v)})
-		}
-		if len(vs) == 0 {
-			return fmt.Sprintf("map[string]%s{}", bg.GoType(te.Parameters[0]))
-		}
-		sort.Sort(vs)
-		return fmt.Sprintf("map[string]%s{\n%s,\n}", bg.GoType(te.Parameters[0]), vs)
-	case "Nullable":
-		if val == nil {
-			return "nil"
-		}
-		return "&" + bg.goValue(decl_tp, te.Parameters[0], val)
-	}
-	panic("??? GoValuePrimitive")
-}
-
-func (bg *baseGen) goValueScopedName(
-	decl_tp typeParam,
-	te goadl.TypeExpr,
-	ref goadl.ScopedName,
-	val any,
-) string {
-	gt := bg.GoType(te)
-
-	if len(decl_tp.ps) != len(te.Parameters) {
-		panic("len(decl typeparams) != len(gt.TypeParams.ps)")
-	}
-	tpMap := map[string]goadl.TypeExpr{}
-	for i, tp := range decl_tp.ps {
-		tpMap[tp] = te.Parameters[i]
-	}
-
-	decl, ok := bg.declMap[ref.ModuleName+"::"+ref.Name]
-	if !ok {
-		panic("decl not in map :" + ref.ModuleName + "::" + ref.Name)
-	}
-	vs := goadl.Handle_DeclType[[]string](
-		decl.Type.Branch,
-		func(struct_ goadl.Struct) []string {
-			m := val.(map[string]any)
-			return slices.FlatMap[goadl.Field, string](struct_.Fields, func(f goadl.Field) []string {
-				ret := []string{}
-				if v, ok := m[f.SerializedName]; ok {
-					monoTe := defunctionalizeTe(tpMap, f.TypeExpr)
-					fgv := bg.goValue(decl_tp, monoTe, v)
-					// bg.GoValue(decl_tp, f.TypeExpr, v)
-					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
-				}
-				if _, ok := m[f.SerializedName]; !ok && f.Default.Just != nil {
-					monoTe := defunctionalizeTe(tpMap, f.TypeExpr)
-					fgv := bg.goValue(decl_tp, monoTe, *f.Default.Just)
-					// bg.GoValue(decl_tp, f.TypeExpr, *f.Default.Just)
-					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
-				}
-				return ret
-			})
-		},
-		func(union_ goadl.Union) []string {
-			var (
-				k string
-				v any
-			)
-			switch t := val.(type) {
-			case string:
-				k = t
-				v = nil
-			case map[string]any:
-				if len(t) != 1 {
-					panic(fmt.Sprintf("expect an object with one and only element received %v", len(t)))
-				}
-				for k0, v0 := range t {
-					k = k0
-					v = v0
-				}
-			default:
-				panic(fmt.Errorf("union: expect an object received %v '%v'", reflect.TypeOf(val), val))
-			}
-			var fld *goadl.Field
-			for _, f0 := range union_.Fields {
-				if f0.SerializedName == k {
-					fld = &f0
-					break
-				}
-			}
-			if fld == nil {
-				panic(fmt.Errorf("unexpected branch - no type registered '%v'", k))
-			}
-			monoTe := defunctionalizeTe(tpMap, fld.TypeExpr)
-			f_tp := gt.TypeParams
-			if f_tp0, ok := fld.TypeExpr.TypeRef.Branch.(goadl.TypeRefBranch_TypeParam); ok {
-				monoFtp, ok := tpMap[string(f_tp0)]
-				if !ok {
-					panic(fmt.Errorf("type param not found"))
-				}
-				monoGt := bg.GoType(monoFtp)
-				f_tp = typeParam{
-					ps: []string{monoGt.Type},
-				}
-			}
-			return []string{
-				fmt.Sprintf(`%sBranch_%s%s{%v}`,
-					decl.Name,
-					fld.Name,
-					f_tp.RSide(),
-					bg.goValue(decl_tp, monoTe, v),
-				),
-			}
-		},
-		func(type_ goadl.TypeDef) []string {
-			return []string{"todo - type"}
-		},
-		func(newtype_ goadl.NewType) []string {
-			return []string{"todo - newtype"}
-		},
-		nil,
-	)
-
-	return fmt.Sprintf("%s{\n%s,\n}", gt.String(), strings.Join(vs, ",\n"))
-	// return fmt.Sprintf("%s{%v,\n}", gt.String(), val)
-
-	// panic("todo")
-}
-
-type kv struct {
-	k string
-	v string
-}
-
-type kvBy []kv
-
-func (kv kv) String() string {
-	return fmt.Sprintf(`"%s" : %s`, kv.k, kv.v)
-}
-func (elems kvBy) String() string {
-	var b strings.Builder
-	// b.Grow(n)
-	b.WriteString(elems[0].String())
-	for _, s := range elems[1:] {
-		b.WriteString(",\n")
-		b.WriteString(s.String())
-	}
-	return b.String()
-}
-
-func (a kvBy) Len() int           { return len(a) }
-func (a kvBy) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a kvBy) Less(i, j int) bool { return a[i].k < a[j].v }
 
 func defunctionalizeTe(m map[string]goadl.TypeExpr, te goadl.TypeExpr) goadl.TypeExpr {
 

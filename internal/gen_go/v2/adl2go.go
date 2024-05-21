@@ -2,7 +2,6 @@ package gen_go_v2
 
 import (
 	"fmt"
-	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v2"
 	"github.com/adl-lang/goadlc/internal/gen_go/fn/slices"
@@ -60,13 +59,7 @@ func (in *baseGen) GoType(
 		func(ref goadl.ScopedName) goTypeExpr {
 			packageName := ""
 			if in.moduleName != ref.ModuleName {
-				if in.midPath != "" {
-					pkg := in.modulePath + "/" + in.midPath + "/" + strings.ReplaceAll(ref.ModuleName, ".", "/")
-					packageName = in.imports.add(pkg)
-				} else {
-					pkg := in.modulePath + "/" + strings.ReplaceAll(ref.ModuleName, ".", "/")
-					packageName = in.imports.add(pkg)
-				}
+				packageName = in.imports.addModule(ref.ModuleName, in.modulePath, in.midPath)
 			}
 			goTypeParams := slices.Map(typeExpr.Parameters, func(a goadl.TypeExpr) goTypeExpr {
 				return in.GoType(a)
@@ -92,6 +85,13 @@ func (in *baseGen) PrimitiveMap(
 	p string,
 	params []goadl.TypeExpr,
 ) (_type goTypeExpr) {
+	// if p == "Void" {
+	// 	pkg, err := in.Import("goadl")
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	return goTypeExpr{"", pkg + "Void", typeParam{}, false}
+	// }
 	r, has := primitiveMap[p]
 	if has {
 		return goTypeExpr{"", r, typeParam{}, false}
@@ -161,8 +161,8 @@ var (
 		"Double":     "float64",
 		"String":     "string",
 		"ByteVector": "[]byte",
-		"Void":       "goadl.Void",
-		"Json":       "interface{}",
+		"Void":       "struct{}",
+		"Json":       "any",
 		// "`Vector<T>`":    0,
 		// "`StringMap<T>`": 0,
 		// "`Nullable<T>`":  0,

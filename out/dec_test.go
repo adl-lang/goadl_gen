@@ -1,4 +1,4 @@
-package decode_test
+package out_test
 
 import (
 	"bytes"
@@ -10,15 +10,14 @@ import (
 
 	"adl_testing/decode/test01"
 
-	goadl "github.com/adl-lang/goadl_rt/v2"
-	"github.com/adl-lang/goadl_rt/v2/adljson"
+	goadl "github.com/adl-lang/goadl_rt/v3"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
 )
 
 func TestNewTypePrim(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString("42")
-	dec := adljson.NewDecoder(out, test01.Texpr_A(), goadl.RESOLVER)
+	dec := goadl.NewDecoder(out, test01.Texpr_A(), goadl.RESOLVER)
 	var y test01.A
 	err := dec.Decode(&y)
 	if err != nil {
@@ -32,7 +31,7 @@ func TestNewTypePrim(t *testing.T) {
 func TestStructOfPrim(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"a":42}`)
-	dec := adljson.NewDecoder(out, test01.Texpr_B(), goadl.RESOLVER)
+	dec := goadl.NewDecoder(out, test01.Texpr_B(), goadl.RESOLVER)
 	var y test01.B
 	err := dec.Decode(&y)
 	if err != nil {
@@ -46,7 +45,7 @@ func TestStructOfPrim(t *testing.T) {
 func TestStructOfStruct(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"b": {"a":42}, "c": {"a": 3}}`)
-	dec := adljson.NewDecoder(out, test01.Texpr_C(), goadl.RESOLVER)
+	dec := goadl.NewDecoder(out, test01.Texpr_C(), goadl.RESOLVER)
 	var y test01.C
 	err := dec.Decode(&y)
 	if err != nil {
@@ -63,7 +62,7 @@ func TestReflectConstruction(t *testing.T) {
 	dT := reflect.TypeFor[test01.D]()
 	dv := reflect.New(dT).Elem()
 
-	b := test01.DBranch_a{
+	b := test01.D_A{
 		V: 1,
 	}
 	s0 := reflect.ValueOf(b)
@@ -81,7 +80,7 @@ func TestReflectConstruction02(t *testing.T) {
 		D test01.D
 	}{}
 
-	dT := reflect.TypeFor[test01.DBranch_a]()
+	dT := reflect.TypeFor[test01.D_A]()
 	dv := reflect.New(dT).Elem()
 	dv.Field(0).SetInt(123)
 
@@ -94,7 +93,7 @@ func TestReflectConstruction02(t *testing.T) {
 func TestTopLevelUnion01(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"a": 42}`)
-	dec := adljson.NewDecoder(out, test01.Texpr_D(), goadl.RESOLVER)
+	dec := goadl.NewDecoder(out, test01.Texpr_D(), goadl.RESOLVER)
 	var y test01.D
 	err := dec.Decode(&y)
 	if err != nil {
@@ -117,7 +116,7 @@ func TestTypeCast(t *testing.T) {
 func TestTopLevelUnion02(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"b": {"a":42}}`)
-	dec := adljson.NewDecoder(out, test01.Texpr_D(), goadl.RESOLVER)
+	dec := goadl.NewDecoder(out, test01.Texpr_D(), goadl.RESOLVER)
 	var y test01.D
 	err := dec.Decode(&y)
 	if err != nil {
@@ -131,7 +130,7 @@ func TestTopLevelUnion02(t *testing.T) {
 func TestUnionInStruct(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"d":{"b": {"a":42}}}`)
-	dec := adljson.NewDecoder(out, test01.Texpr_E(), goadl.RESOLVER)
+	dec := goadl.NewDecoder(out, test01.Texpr_E(), goadl.RESOLVER)
 	var y test01.E
 	err := dec.Decode(&y)
 	if err != nil {
@@ -167,13 +166,13 @@ func TestPrims(t *testing.T) {
 		R: goadl.Void{},
 	}
 	buf := bytes.Buffer{}
-	enc := adljson.NewEncoder(&buf, test01.Texpr_F(), goadl.RESOLVER)
+	enc := goadl.NewEncoder(&buf, test01.Texpr_F(), goadl.RESOLVER)
 	err := enc.Encode(p)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
 	// fmt.Printf("%v\n", buf.String())
-	dec := adljson.NewDecoder(&buf, test01.Texpr_F(), goadl.RESOLVER)
+	dec := goadl.NewDecoder(&buf, test01.Texpr_F(), goadl.RESOLVER)
 	pIn := test01.F{}
 	err = dec.Decode(&pIn)
 	if err != nil {
@@ -189,7 +188,7 @@ pIn :%+#v
 	// fmt.Printf("out == in\npOut:%+v\npIn :%+v\n", p, pIn)
 
 	buf2 := bytes.Buffer{}
-	enc2 := adljson.NewEncoder(&buf2, test01.Texpr_F(), goadl.RESOLVER)
+	enc2 := goadl.NewEncoder(&buf2, test01.Texpr_F(), goadl.RESOLVER)
 	err = enc2.Encode(p)
 	if err != nil {
 		t.Errorf("%v", err)
@@ -200,7 +199,7 @@ pIn :%+#v
 func TestStructRecurse(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"a":[{"a":[]}]}`)
-	dec := adljson.NewDecoder(out, test01.Texpr_G(), goadl.RESOLVER)
+	dec := goadl.NewDecoder(out, test01.Texpr_G(), goadl.RESOLVER)
 	var y test01.G
 	err := dec.Decode(&y)
 	if err != nil {
@@ -212,7 +211,7 @@ func TestStructRecurse(t *testing.T) {
 	}
 
 	buf := bytes.Buffer{}
-	enc := adljson.NewEncoder(&buf, test01.Texpr_G(), goadl.RESOLVER)
+	enc := goadl.NewEncoder(&buf, test01.Texpr_G(), goadl.RESOLVER)
 	err = enc.Encode(y)
 	if err != nil {
 		t.Fatalf("err : %v", err)
@@ -228,7 +227,7 @@ func TestAdlAst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't read combined.json err:%v", err)
 	}
-	dec := adljson.NewDecoder(cj, goadl.Texpr_StringMap(adlast.Texpr_Module()), goadl.RESOLVER)
+	dec := goadl.NewDecoder(cj, goadl.Texpr_StringMap(goadl.Texpr_Module()), goadl.RESOLVER)
 	var ast map[string]adlast.Module
 	err = dec.Decode(&ast)
 	if err != nil {
@@ -236,7 +235,7 @@ func TestAdlAst(t *testing.T) {
 	}
 	// fmt.Printf("%+v\n", ast)
 	buf := bytes.Buffer{}
-	enc := adljson.NewEncoder(&buf, goadl.Texpr_StringMap(adlast.Texpr_Module()), goadl.RESOLVER)
+	enc := goadl.NewEncoder(&buf, goadl.Texpr_StringMap(goadl.Texpr_Module()), goadl.RESOLVER)
 	err = enc.Encode(ast)
 	if err != nil {
 		t.Fatalf("err:%v", err)

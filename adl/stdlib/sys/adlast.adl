@@ -23,9 +23,9 @@ union TypeRef
     ScopedName reference;
 };
 
-struct ATypeExpr<T> {
-    TypeExpr Value;
-};
+// struct ATypeExpr<T> {
+//     TypeExpr Value;
+// };
 
 // type List<T> = Vector<T>;
 
