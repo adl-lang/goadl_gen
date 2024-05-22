@@ -1,0 +1,21 @@
+{{$G := .G}}
+{{$name := .Name | .G.GoEscape | public}}
+func AST_{{$name}}() {{$G.Import "adlast"}}ScopedDecl {	
+	decl := {{$G.GoDeclValue .Decl}}
+	return {{$G.Import "adlast"}}ScopedDecl{
+		ModuleName: "{{.ModuleName}}",
+		Decl: decl,
+	}
+}
+
+func init() {
+	{{$G.Import "goadl"}}RESOLVER.Register(
+		{{$G.Import "adlast"}}ScopedName{ModuleName: "{{.ModuleName}}", Name: "{{.Name}}"},
+		{{$G.Import "goadl"}}ScopedInfo{
+			SD: AST_{{.Name}}(),
+			TypeMap: map[string]{{$G.Import "reflect"}}Type{ {{- range .Fields}}{{$Type := $G.GoType .TypeExpr}}
+				"{{.SerializedName}}": {{$G.Import "reflect"}}TypeOf({{$name}}_{{.Name | public}}{{$Type.TypeParams.TpArgs}}{}),{{end}}
+			},
+		},
+	)
+}

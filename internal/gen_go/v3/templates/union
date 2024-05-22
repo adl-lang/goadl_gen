@@ -1,0 +1,73 @@
+{{$decl := .}}
+{{$name := .Name | .G.GoEscape | public}}
+{{$G := .G}}
+type {{$name}}{{$decl.TypeParams.LSide}} struct {
+	Branch {{$name}}Branch{{$decl.TypeParams.RSide}}
+}
+
+type {{$name}}Branch{{$decl.TypeParams.LSide}} interface {
+	is{{$name}}Branch()
+}
+
+func (*{{$name}}{{.TypeParams.RSide}}) MakeNewBranch(key string) (any, error) {
+	switch key {
+	{{range .Branches -}}{{$type := $G.GoType .TypeExpr}}case "{{.SerializedName}}":
+		return {{$name}}_{{.Name | public}}{{$type.TypeParams.RSide}}{}, nil
+	{{end}}}
+	return nil, {{$G.Import "fmt"}}Errorf("unknown branch is : %s", key)
+}
+
+{{range .Branches -}}{{$type := $G.GoType .TypeExpr}}
+type {{$name}}_{{.Name | public}}{{$type.TypeParams.LSide}} struct {
+	V {{$type}} `branch:"{{.Name}}"`
+}{{end}}
+
+{{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
+func ({{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}) is{{$name}}Branch() {}
+{{end}}
+
+{{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
+func Make_{{$name}}_{{.Name}}{{$decl.TypeParams.LSide}}(v {{$Type}}) {{$name}}{{$decl.TypeParams.RSide}} {
+	return {{$name}}{{$decl.TypeParams.RSide}}{
+		{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}{v},
+	}
+}
+{{end}}
+
+{{$htp := .TypeParams.AddParam "T"}}
+
+func Handle_{{$name}}{{$htp.LSide}}(
+	_in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}{{$Type := $G.GoType .TypeExpr}}
+	{{.Name}} func({{.Name}} {{$Type}}) ({{$htp.Last}}),{{end}}
+	_default func() {{$htp.Last}},
+) ({{$htp.Last}}) {
+	switch _b := _in.(type) {
+	{{range .Branches -}}{{- $Type := $G.GoType .TypeExpr -}}
+	case {{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
+		if {{.Name}} != nil {
+			return {{.Name}}(_b.V)
+		}
+	{{end}}}
+	if _default != nil {
+		return _default()
+	}
+	panic("code gen error unhandled branch in : {{$name}}")
+}
+
+func HandleWithErr_{{$name}}{{$htp.LSide}}(
+	_in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}{{$Type := $G.GoType .TypeExpr}}
+	{{.Name}} func({{.Name}} {{$Type}}) ({{$htp.Last}}, error),{{end}}
+	_default func() ({{$htp.Last}}, error),
+) ({{$htp.Last}}, error) {
+	switch _b := _in.(type) {
+	{{range .Branches -}}{{$Type := $G.GoType .TypeExpr -}}
+	case {{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
+		if {{.Name}} != nil {
+			return {{.Name}}(_b.V)
+		}
+	{{end}}}
+	if _default != nil {
+		return _default()
+	}
+	panic("code gen error unhandled branch in : {{$name}}")
+}
