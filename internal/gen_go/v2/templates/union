@@ -24,7 +24,7 @@ type {{$name}}_{{.Name | public}}{{$type.TypeParams.LSide}} struct {
 
 {{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
 func ({{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}) is{{$name}}Branch() {}
-{{end}}
+{{- end}}
 
 {{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
 func Make_{{$name}}_{{.Name}}{{$decl.TypeParams.LSide}}(v {{$Type}}) {{$name}}{{$decl.TypeParams.RSide}} {

@@ -25,7 +25,6 @@
   "GenAstInfo": [],
   "StdLibGen": false,
   "Files": [
-    "adl/exer/exer02/*.adl",
-    "adl/exer/exer02/another/*.adl"
+    "adl/exer/exer02/simple_struct.adl"
   ]
 }

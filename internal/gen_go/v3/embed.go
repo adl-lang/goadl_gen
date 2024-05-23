@@ -3,6 +3,7 @@ package gen_go_v2
 import (
 	"bytes"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"os"
 	"reflect"
@@ -56,12 +57,9 @@ func (tr *templateRenderer) Render(params any) {
 	name := typeName[:len(typeName)-len("Params")]
 	err := tr.t.ExecuteTemplate(&tr.buf, name, params)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, `Error executing template -- EXITING.
-template: %s
-data: %+#v
-error: %v
-`, name, params, err)
-		os.Exit(1)
+		data, _ := json.Marshal(params)
+		fmt.Fprintf(os.Stderr, "error executing template -- template: %s\nerror: %v\n%s", name, err, data)
+		panic(err)
 	}
 	// return nil
 }

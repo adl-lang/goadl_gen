@@ -28,9 +28,6 @@ func (in *goadlcV2Cmd) modpath() (modulePath, midPath string, errout error) {
 					break
 				}
 				dir0, file := filepath.Split(dir)
-				if in.Debug {
-					fmt.Fprintf(os.Stderr, ">>> '%s' '%s'\n", dir0, file)
-				}
 				dir = dir0
 				if last {
 					break

@@ -1,7 +1,7 @@
 module exer02.simple_struct_with_default {
 
 struct StructOfPrimitivesWithDefault {
-    Int32 A;
+    Int32 A = 1;
     Int64 B = 2;
     Bool  c = true;
     Double d = 1.1;

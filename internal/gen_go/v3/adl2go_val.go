@@ -44,14 +44,17 @@ func (bg *generator) GoDeclValue(val adlast.Decl) string {
 	defer func() {
 		r := recover()
 		if r != nil {
-			v := bytes.Buffer{}
-			dec := goadl.NewEncoder(&v, goadl.Texpr_Decl(), goadl.RESOLVER)
-			dec.Encode(val)
-			fmt.Printf("DECL \n%s \n", v.String())
+			// v := bytes.Buffer{}
+			// dec := goadl.NewEncoder(&v, goadl.Texpr_Decl(), goadl.RESOLVER)
+			// dec.Encode(val)
+			// fmt.Printf("DECL \n%s \n", v.String())
 			fmt.Fprintf(os.Stderr, "ERROR in GoDeclValue %v\n%v", r, string(debug.Stack()))
 			panic(r)
 		}
 	}()
+	// j, _ := json.Marshal(val)
+	// fmt.Printf("***\n%s\n***\n", string(j))
+
 	var buf bytes.Buffer
 	enc := goadl.NewEncoder(&buf, goadl.Texpr_Decl(), goadl.RESOLVER)
 	err := enc.Encode(val)
@@ -61,9 +64,7 @@ func (bg *generator) GoDeclValue(val adlast.Decl) string {
 	}
 	var m any
 
-	dst := bytes.Buffer{}
-	json.Indent(&dst, buf.Bytes(), "", "  ")
-	fmt.Printf("~~~\n%s\n~~~\n", buf.String())
+	// fmt.Printf("~~~\n%s\n~~~\n", buf.String())
 
 	dec := json.NewDecoder(&buf)
 	// dec.UseNumber()
@@ -235,11 +236,11 @@ func (bg *baseGen) goValueScopedName(
 							return nil
 						},
 						func(just any) any {
-							fmt.Printf("???????2 %#+v\n", just)
+							// fmt.Printf("???????2 %#+v\n", just)
 							val := reflect.ValueOf(just).Interface()
 							monoTe := defunctionalizeTe(tpMap, f.TypeExpr)
 							ctx0 := valContext{append(ctx.path, f.Name)}
-							fmt.Printf("~~~ %#+v\n", val)
+							// fmt.Printf("~~~ %#+v\n", val)
 							fgv := bg.goValue(ctx0, decl_tp, monoTe, val)
 							ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
 							return nil

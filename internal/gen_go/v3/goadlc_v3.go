@@ -7,7 +7,6 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"reflect"
 	goslices "slices"
 	"strings"
 
@@ -542,7 +541,7 @@ func makeFieldParam(f adlast.Field) fieldParams {
 			}
 		},
 		func(just any) fieldParams {
-			fmt.Printf("???????1 %v\n", reflect.TypeOf(just))
+			// fmt.Printf("???????1 %v\n", reflect.TypeOf(just))
 			// val := reflect.ValueOf(just).Interface()
 			return fieldParams{
 				Field:      f,
