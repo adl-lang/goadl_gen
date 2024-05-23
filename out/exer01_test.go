@@ -2,33 +2,59 @@ package out_test
 
 import (
 	"bytes"
-	"fmt"
+	"reflect"
+	"strings"
 	"testing"
 
 	"adl_testing/exer01/simple_union"
 	"adl_testing/exer01/struct01"
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
-	adlast "github.com/adl-lang/goadl_rt/v3/sys/adlast"
 )
 
-func TestEnum(_ *testing.T) {
-	x := simple_union.Make_UnionOfVoids_A(struct{}{})
+func TestEnum(t *testing.T) {
+	x := simple_union.Make_UnionOfVoids_g(struct{}{})
 	out := &bytes.Buffer{}
 	enc := goadl.NewEncoder(out, simple_union.Texpr_UnionOfVoids(), goadl.RESOLVER)
-	enc.Encode(x)
-	fmt.Printf("%s\n", out.String())
+	err := enc.Encode(x)
+	if err != nil {
+		t.Error(err)
+	}
+	dec := goadl.NewDecoder(out, simple_union.Texpr_UnionOfVoids(), goadl.RESOLVER)
+	var y simple_union.UnionOfVoids
+	err = dec.Decode(&y)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(x, y) {
+		t.Errorf("not equal")
+	}
 }
 
-func TestUnion(_ *testing.T) {
+func TestUnion(t *testing.T) {
 	x := simple_union.Make_UnionOfPrimitives_A(42)
 	out := &bytes.Buffer{}
 	enc := goadl.NewEncoder(out, simple_union.Texpr_UnionOfPrimitives(), goadl.RESOLVER)
-	enc.Encode(x)
-	fmt.Printf("%s\n", out.String())
+	err := enc.Encode(x)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if `{"A":42}` != out.String() {
+		t.Error(`{"A":42} != out.String()`)
+	}
+	dec := goadl.NewDecoder(out, simple_union.Texpr_UnionOfPrimitives(), goadl.RESOLVER)
+	var y simple_union.UnionOfPrimitives
+	err = dec.Decode(&y)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(x, y) {
+		t.Errorf("not equal")
+	}
 }
 
-func TestUnions(_ *testing.T) {
+func TestUnions(t *testing.T) {
 	xs := []simple_union.UnionOfPrimitives{
 		simple_union.Make_UnionOfPrimitives_A(42),
 		simple_union.Make_UnionOfPrimitives_B(41),
@@ -39,29 +65,21 @@ func TestUnions(_ *testing.T) {
 		simple_union.Make_UnionOfPrimitives_g(struct{}{}),
 	}
 	out := &bytes.Buffer{}
-	te := goadl.ATypeExpr[[]simple_union.UnionOfPrimitives]{
-		Value: adlast.TypeExpr{
-			TypeRef: adlast.TypeRef{
-				Branch: adlast.TypeRef_Primitive{V: "Vector"},
-			},
-			Parameters: []adlast.TypeExpr{
-				{
-					TypeRef: adlast.TypeRef{
-						Branch: adlast.TypeRef_Reference{
-							V: adlast.ScopedName{
-								ModuleName: "exer01.simple_union",
-								Name:       "UnionOfPrimitives",
-							},
-						},
-					},
-					Parameters: []adlast.TypeExpr{},
-				},
-			},
-		},
-	}
+	te := goadl.Texpr_Vector(simple_union.Texpr_UnionOfPrimitives())
 	enc := goadl.NewEncoder(out, te, goadl.RESOLVER)
 	enc.Encode(xs)
-	fmt.Printf("%s\n", out.String())
+	if `[{"A":42},{"B":41},{"c":true},{"d":41.01},{"e":"sdfadf"},{"f":["a","b","v"]},{"g":null}]` != out.String() {
+		t.Error("json str !=")
+	}
+	dec := goadl.NewDecoder(out, te, goadl.RESOLVER)
+	ys := []simple_union.UnionOfPrimitives{}
+	err := dec.Decode(&ys)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(xs, ys) {
+		t.Errorf("not equal")
+	}
 }
 
 func TestStruct01(t *testing.T) {
@@ -71,10 +89,10 @@ func TestStruct01(t *testing.T) {
 		B: 41,
 		C: "",
 		D: map[string]any{
-			"a": 1234567890,
+			"a": float64(123456),
 		},
 		E: []string{"a", "b", "c"},
-		F: map[string][]string{"a": {"z"}, "b": {"x"}, "c": {"y"}},
+		F: map[string][]string{"a": {"z"}, "b": {"x"}, "sc": {"y"}},
 		I: &a,
 		J: struct01.B{
 			A: "sfd",
@@ -84,5 +102,22 @@ func TestStruct01(t *testing.T) {
 	out := &bytes.Buffer{}
 	enc := goadl.NewEncoder[struct01.Struct01](out, struct01.Texpr_Struct01(), goadl.RESOLVER)
 	enc.Encode(x)
-	fmt.Printf("%s\n", out.String())
+	o1 := out.String()
+
+	dec := goadl.NewDecoder(out, struct01.Texpr_Struct01(), goadl.RESOLVER)
+	y := struct01.Struct01{}
+	err := dec.Decode(&y)
+	if err != nil {
+		t.Error(err)
+	}
+	// if !reflect.DeepEqual(x, y) {
+	// 	t.Errorf("not equal\n%+v\n%+v\n", x, y)
+	// }
+	sb := strings.Builder{}
+	enc2 := goadl.NewEncoder[struct01.Struct01](&sb, struct01.Texpr_Struct01(), goadl.RESOLVER)
+	enc2.Encode(x)
+	o2 := sb.String()
+	if o1 != o2 {
+		t.Errorf("json !=")
+	}
 }

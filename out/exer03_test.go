@@ -2,8 +2,7 @@ package out_test
 
 import (
 	"bytes"
-	"encoding/json"
-	"fmt"
+	"reflect"
 	"testing"
 
 	"adl_testing/exer03/generics"
@@ -30,10 +29,19 @@ func TestGenericEncode(t *testing.T) {
 	if err != nil {
 		t.Errorf("%v", err)
 	}
-	out2 := bytes.Buffer{}
-	json.Indent(&out2, out.Bytes(), "", "  ")
-	fmt.Printf("%s\n", out2.String())
-	o2, _ := json.Marshal(x)
-	fmt.Printf("%s\n", string(o2))
+	dec := goadl.NewDecoder(out, generics.Texpr_Abc(goadl.Texpr_Int64(), goadl.Texpr_String()), goadl.RESOLVER)
+	var y generics.Abc[int64, string]
+	err = dec.Decode(&y)
+	if err != nil {
+		t.Errorf("%v", err)
+	}
+	if !reflect.DeepEqual(x, y) {
+		t.Errorf("!=\n%v\n%v\n", x, y)
+	}
+	// out2 := bytes.Buffer{}
+	// json.Indent(&out2, out.Bytes(), "", "  ")
+	// fmt.Printf("%s\n", out2.String())
+	// o2, _ := json.Marshal(x)
+	// fmt.Printf("%s\n", string(o2))
 
 }
