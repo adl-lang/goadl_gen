@@ -2,7 +2,7 @@
 {{$name := .Name | public}}
 {{$G := .G}}
 type {{$name}}{{$decl.TypeParams.LSide}} struct {
-{{range .Fields}}	{{.Name|public}} {{$G.GoType .TypeExpr}}
+{{range .Fields}}	{{.Name|public}} {{$G.GoType .TypeExpr}} `json:"{{.SerializedName}}"`
 {{end -}}
 }
 
