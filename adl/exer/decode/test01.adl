@@ -45,4 +45,34 @@ struct G {
     Vector<G> a;
 };
 
+struct Unit {};
+
+struct Int {
+    Int8 a;
+};
+
+struct Uint {
+    Word16 a;
+};
+
+struct Bool {
+    Bool a;
+};
+
+struct NullableString {
+    Nullable<String> a;
+};
+
+struct StringMapString {
+    StringMap<String> a;
+};
+
+struct VectorString {
+    Vector<String> a;
+};
+
+struct Json {
+    Json a;
+};
+
 };

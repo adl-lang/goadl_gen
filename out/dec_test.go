@@ -263,3 +263,264 @@ func TestAdlAst(t *testing.T) {
 	// cj0.Write(ibuf.Bytes())
 	// cj0.Close()
 }
+
+func TestUnchecked(t *testing.T) {
+	t.Run("struct-struct", func(t *testing.T) {
+		var x = test01.New_Int(5)
+		var y = test01.Int{}
+		var texpr = test01.Texpr_Int().Value
+
+		buf := bytes.Buffer{}
+		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err := enc.Encode(x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err = dec.Decode(&y)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(x, y) {
+			t.Errorf("not equal\n%+v\n%+v", x, y)
+		}
+	})
+	t.Run("&struct-struct", func(t *testing.T) {
+		var x = test01.New_Int(5)
+		var y = test01.Int{}
+		var texpr = test01.Texpr_Int().Value
+
+		buf := bytes.Buffer{}
+		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err := enc.Encode(&x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err = dec.Decode(&y)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(x, y) {
+			t.Errorf("not equal\n%+v\n%+v", x, y)
+		}
+	})
+	t.Run("struct-any", func(t *testing.T) {
+		var x = test01.New_Int(5)
+		var y any = &test01.Int{}
+		var texpr = test01.Texpr_Int().Value
+
+		buf := bytes.Buffer{}
+		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err := enc.Encode(x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err = dec.Decode(y)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(&x, y) {
+			t.Errorf("not equal\n%+v\n%+v", x, y)
+		}
+	})
+	t.Run("&struct-any", func(t *testing.T) {
+		var x = test01.New_Int(5)
+		var y any = &test01.Int{}
+		var texpr = test01.Texpr_Int().Value
+
+		buf := bytes.Buffer{}
+		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err := enc.Encode(&x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err = dec.Decode(y)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(&x, y) {
+			t.Errorf("not equal\n%+v\n%+v", x, y)
+		}
+	})
+	t.Run("any&-any", func(t *testing.T) {
+		var z = test01.New_Int(5)
+		var x any = &z
+		var y any = &test01.Int{}
+		var texpr = test01.Texpr_Int().Value
+
+		buf := bytes.Buffer{}
+		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err := enc.Encode(x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err = dec.Decode(y)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(x, y) {
+			t.Errorf("not equal\n%+v\n%+v", x, y)
+		}
+	})
+	t.Run("any-any", func(t *testing.T) {
+		var z = test01.New_Int(5)
+		var x any = z
+		var y any = &test01.Int{}
+		var texpr = test01.Texpr_Int().Value
+
+		buf := bytes.Buffer{}
+		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err := enc.Encode(x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err = dec.Decode(y)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(x, reflect.ValueOf(y).Elem().Interface()) {
+			t.Errorf("not equal\n%+v\n%+v", x, y)
+		}
+	})
+	t.Run("&any-any", func(t *testing.T) {
+		var z = test01.New_Int(5)
+		var x any = z
+		var y any = &test01.Int{}
+		var texpr = test01.Texpr_Int().Value
+
+		buf := bytes.Buffer{}
+		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err := enc.Encode(&x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err = dec.Decode(y)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(x, reflect.ValueOf(y).Elem().Interface()) {
+			t.Errorf("not equal\n%+v\n%+v", x, y)
+		}
+	})
+	t.Run("&any-&any", func(t *testing.T) {
+		var z = test01.New_Int(5)
+		var x any = &z
+		var y any = &test01.Int{}
+		var texpr = test01.Texpr_Int().Value
+
+		buf := bytes.Buffer{}
+		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err := enc.Encode(&x)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
+		err = dec.Decode(&y)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !reflect.DeepEqual(x, y) {
+			t.Errorf("not equal\n%+v\n%+v", x, y)
+		}
+	})
+}
+
+func TestEncDec(t *testing.T) {
+	str := "abc"
+	testCases := []struct {
+		desc  string
+		texpr adlast.TypeExpr
+		x     any
+		y     any
+	}{
+		{
+			desc:  "Int",
+			texpr: test01.Texpr_Int().Value,
+			x:     test01.New_Int(5),
+			y:     &test01.Int{},
+		},
+		{
+			desc:  "UInt",
+			texpr: test01.Texpr_Uint().Value,
+			x:     test01.New_Uint(5),
+			y:     &test01.Uint{},
+		},
+		{
+			desc:  "Bool",
+			texpr: test01.Texpr_Bool().Value,
+			x:     test01.New_Bool(true),
+			y:     &test01.Bool{},
+		},
+		{
+			desc:  "Unit",
+			texpr: test01.Texpr_Unit().Value,
+			x:     test01.New_Unit(),
+			y:     &test01.Unit{},
+		},
+		{
+			desc:  "NullableString",
+			texpr: test01.Texpr_NullableString().Value,
+			x:     test01.New_NullableString(&str),
+			y:     &test01.NullableString{},
+		},
+		{
+			desc:  "StringMapString",
+			texpr: test01.Texpr_StringMapString().Value,
+			x:     test01.New_StringMapString(map[string]string{"a": "sdf"}),
+			y:     &test01.StringMapString{},
+		},
+		{
+			desc:  "VectorString",
+			texpr: test01.Texpr_VectorString().Value,
+			x:     test01.New_VectorString([]string{"a", "sdf"}),
+			y:     &test01.VectorString{},
+		},
+		{
+			desc:  "Json01",
+			texpr: test01.Texpr_Json().Value,
+			x:     test01.New_Json(map[string]any{"a": "sdf"}),
+			y:     &test01.Json{},
+		},
+		{
+			desc:  "Json02",
+			texpr: test01.Texpr_Json().Value,
+			x:     test01.New_Json([]any{true, float64(1), float64(1.1), nil}),
+			y:     &test01.Json{},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			buf := bytes.Buffer{}
+			enc := goadl.NewEncoderUnchecked(&buf, tC.texpr, goadl.RESOLVER)
+			err := enc.Encode(tC.x)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			dec := goadl.NewDecoderUnchecked(&buf, tC.texpr, goadl.RESOLVER)
+			err = dec.Decode(tC.y)
+			if err != nil {
+				t.Fatal(err)
+			}
+			x := tC.x
+			y := reflect.ValueOf(tC.y).Elem().Interface()
+			if !reflect.DeepEqual(x, y) {
+				t.Errorf("not equal\n%#+v\n%#+v", x, y)
+			}
+		})
+	}
+}
