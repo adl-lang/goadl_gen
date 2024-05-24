@@ -11,11 +11,6 @@ func AST_{{$name}}() {{$G.Import "adlast"}}ScopedDecl {
 func init() {
 	{{$G.Import "goadl"}}RESOLVER.Register(
 		{{$G.Import "adlast"}}ScopedName{ModuleName: "{{.ModuleName}}", Name: "{{.Name}}"},
-		{{$G.Import "goadl"}}ScopedInfo{
-			SD: AST_{{.Name}}(),
-			TypeMap: map[string]{{$G.Import "reflect"}}Type{ {{- range .Fields}}{{$Type := $G.GoType .TypeExpr}}
-				"{{.SerializedName}}": {{$G.Import "reflect"}}TypeOf({{$name}}_{{.Name | public}}{{$Type.TypeParams.TpArgs}}{}),{{end}}
-			},
-		},
+		AST_{{.Name}}(),
 	)
 }

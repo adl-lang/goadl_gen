@@ -207,7 +207,7 @@ func (in *goadlcCmd) Run() error {
 		if !ok {
 			si := goadl.RESOLVER.Resolve(sn)
 			if si != nil {
-				return &si.SD.Decl, true
+				return &si.Decl, true
 			}
 			for k := range combinedAst {
 				fmt.Printf("-- %v\n", k)
