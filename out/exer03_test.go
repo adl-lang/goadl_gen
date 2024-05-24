@@ -7,7 +7,10 @@ import (
 
 	"adl_testing/exer03/generics"
 
+	"adl_testing/diff"
+
 	goadl "github.com/adl-lang/goadl_rt/v3"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestGenericEncode(t *testing.T) {
@@ -36,7 +39,11 @@ func TestGenericEncode(t *testing.T) {
 		t.Errorf("%v", err)
 	}
 	if !reflect.DeepEqual(x, y) {
-		t.Errorf("!=\n%v\n%v\n", x, y)
+		have := spew.Sdump(x)
+		want := spew.Sdump(y)
+		d := diff.Diff("have", []byte(have), "want", []byte(want))
+		t.Errorf("!=\n%v\n", string(d))
+
 	}
 	// out2 := bytes.Buffer{}
 	// json.Indent(&out2, out.Bytes(), "", "  ")

@@ -12,7 +12,7 @@ type {{$name}}Branch{{$decl.TypeParams.LSide}} interface {
 func (*{{$name}}{{.TypeParams.RSide}}) MakeNewBranch(key string) (any, error) {
 	switch key {
 	{{range .Branches -}}{{$type := $G.GoType .TypeExpr}}case "{{.SerializedName}}":
-		return {{$name}}_{{.Name | public}}{{$type.TypeParams.RSide}}{}, nil
+		return &{{$name}}_{{.Name | public}}{{$type.TypeParams.RSide}}{}, nil
 	{{end}}}
 	return nil, {{$G.Import "fmt"}}Errorf("unknown branch is : %s", key)
 }

@@ -3,7 +3,6 @@ package out_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -107,7 +106,7 @@ func TestTopLevelUnion01(t *testing.T) {
 func TestTypeCast(t *testing.T) {
 	d := &test01.D{}
 	if _, ok := any(d).(goadl.BranchFactory); ok {
-		fmt.Printf("D implements BranchFactory")
+		// fmt.Printf("D implements BranchFactory")
 	} else {
 		t.Errorf("D doesn't implements BranchFactory")
 	}
