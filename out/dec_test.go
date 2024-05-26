@@ -3,6 +3,7 @@ package out_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -522,4 +523,32 @@ func TestEncDec(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetTest(t *testing.T) {
+	st := test01.New_SetTest(
+		goadl.MapSet[string]{
+			"a": {},
+			"b": {},
+			"c": {},
+		},
+	)
+	for i := 0; i < 8; i++ {
+		buf := bytes.Buffer{}
+		enc := goadl.NewEncoder(&buf, test01.Texpr_SetTest(), goadl.RESOLVER)
+		// enc := goadl.NewEncoder(&buf, goadl.Texpr_Set(goadl.Texpr_String()), goadl.RESOLVER)
+		enc.Encode(st)
+		fmt.Printf("%s\n", buf.String())
+	}
+	buf := bytes.Buffer{}
+	enc := goadl.NewEncoder(&buf, test01.Texpr_SetTest(), goadl.RESOLVER)
+	// enc := goadl.NewEncoder(&buf, goadl.Texpr_Set(goadl.Texpr_String()), goadl.RESOLVER)
+	enc.Encode(st)
+	dec := goadl.NewDecoder(&buf, test01.Texpr_SetTest(), goadl.RESOLVER)
+	st2 := test01.SetTest{}
+	err := dec.Decode(&st2)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Printf("%+#v\n", st2)
 }

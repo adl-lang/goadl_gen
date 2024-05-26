@@ -1,0 +1,18 @@
+module sys.types
+{
+
+import adlc.config.go.*;
+
+annotation Set GoCustomType {
+  "gotype" : "java.util.Set",
+  "ctorjavaname" : "java.util.HashSet",
+  "helpers" : "org.adl.runtime.HashSetHelpers"
+};
+
+annotation Map GoCustomType {
+  "javaname" : "java.util.Map",
+  "ctorjavaname" : "java.util.HashMap",
+  "helpers" : "org.adl.runtime.HashMapHelpers"
+};
+
+};

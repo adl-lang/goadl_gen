@@ -108,8 +108,7 @@ func (bg *baseGen) goValue(ctx valContext, decl_tp typeParam, te adlast.TypeExpr
 			return bg.goValuePrimitive(ctx0, decl_tp, te, primitive, val)
 		},
 		func(typeParam string) string {
-			// return typeParam
-			panic("???GoValue:typeParam " + typeParam)
+			panic("unbound typeParam " + typeParam)
 		},
 		func(ref adlast.ScopedName) string {
 			ctx0 := valContext{append(ctx.path, ref.Name)}
