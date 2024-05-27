@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
-	"github.com/adl-lang/goadl_rt/v3/adlc/config/go_"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
 	"github.com/adl-lang/goadlc/internal/gen_go/fn/slices"
 )
@@ -84,14 +83,17 @@ func (in *baseGen) GoType(
 				return goTypeExpr{
 					Pkg:  gct.Gotype.Pkg,
 					Type: gct.Gotype.Name,
+					// TypeParams: typeParam{
+					// 	ps: slices.Map[go_.TypeParam, string](gct.Gotype.Type_params, func(a go_.TypeParam) string {
+					// 		return a.Name
+					// 	}),
+					// },
 					TypeParams: typeParam{
-						ps: slices.Map[go_.TypeParam, string](gct.Gotype.Type_params, func(a go_.TypeParam) string {
-							return a.Name
+						ps: slices.Map(typeExpr.Parameters, func(a adlast.TypeExpr) string {
+							pt := in.GoType(a)
+							return pt.String()
 						}),
 					},
-					// TypeParams: typeParam{
-					// 	ps: slices.Map(goTypeParams, func(a goTypeExpr) string { return a.String() }),
-					// },
 					IsTypeParam: false,
 				}
 			}
