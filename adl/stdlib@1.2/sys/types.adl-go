@@ -7,10 +7,7 @@ annotation Set GoCustomType {
   "gotype" : {
     "name": "MapSet",
     "pkg": "goadl",
-    "import_path": "github.com/adl-lang/goadl_rt/v3",
-    "type_params": [
-      {"name": "T", "implements": "comparable"}
-    ]
+    "import_path": "github.com/adl-lang/goadl_rt/v3"
   },
   "helpers" : {
     "name": "SetHelper",

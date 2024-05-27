@@ -79,4 +79,12 @@ struct SetTest {
     sys.types.Set<String> my_set;
 };
 
+struct HasDefault {
+    String a = "1234567890";
+};
+
+struct NoDefault {
+    String a;
+};
+
 };

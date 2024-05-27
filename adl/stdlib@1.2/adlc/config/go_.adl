@@ -22,12 +22,6 @@ struct GoType {
     String name;
     String pkg;
     String import_path;
-    Vector<TypeParam> type_params;
-};
-
-struct TypeParam {
-    String name;
-    String implements;
 };
 
 struct GoHelperType {

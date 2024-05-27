@@ -21,11 +21,6 @@
       "ModuleName": "sys.types",
       "Name": "types",
       "Path": "github.com/adl-lang/goadl_rt/v3/sys/types"
-    },
-    {
-      "ModuleName": "adlc.config.go_",
-      "Pkg": "goadl",
-      "RelOutputFile": "adlc_config_go__ast.go"
     }
   ],
   "GenAstInfo": [],

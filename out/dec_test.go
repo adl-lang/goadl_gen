@@ -3,9 +3,9 @@ package out_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 
 	"adl_testing/decode/test01"
@@ -533,13 +533,13 @@ func TestSetTest(t *testing.T) {
 			"c": {},
 		},
 	)
-	for i := 0; i < 8; i++ {
-		buf := bytes.Buffer{}
-		enc := goadl.NewEncoder(&buf, test01.Texpr_SetTest(), goadl.RESOLVER)
-		// enc := goadl.NewEncoder(&buf, goadl.Texpr_Set(goadl.Texpr_String()), goadl.RESOLVER)
-		enc.Encode(st)
-		fmt.Printf("%s\n", buf.String())
-	}
+	// for i := 0; i < 8; i++ {
+	// 	buf := bytes.Buffer{}
+	// 	enc := goadl.NewEncoder(&buf, test01.Texpr_SetTest(), goadl.RESOLVER)
+	// 	// enc := goadl.NewEncoder(&buf, goadl.Texpr_Set(goadl.Texpr_String()), goadl.RESOLVER)
+	// 	enc.Encode(st)
+	// 	fmt.Printf("%s\n", buf.String())
+	// }
 	buf := bytes.Buffer{}
 	enc := goadl.NewEncoder(&buf, test01.Texpr_SetTest(), goadl.RESOLVER)
 	// enc := goadl.NewEncoder(&buf, goadl.Texpr_Set(goadl.Texpr_String()), goadl.RESOLVER)
@@ -550,5 +550,32 @@ func TestSetTest(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	fmt.Printf("%+#v\n", st2)
+	if !reflect.DeepEqual(st, st2) {
+		t.Errorf("!=")
+	}
+	// fmt.Printf("%+#v\n", st2)
+}
+
+func TestHasDefault(t *testing.T) {
+	jb := goadl.CreateJsonDecodeBinding(test01.Texpr_HasDefault(), goadl.RESOLVER)
+	sr := strings.NewReader(`{}`)
+	x := test01.HasDefault{}
+	err := jb.Decode(sr, &x)
+	if err != nil {
+		t.Error(err)
+	}
+	x2 := test01.Make_HasDefault()
+	if !reflect.DeepEqual(x, x2) {
+		t.Errorf("!=")
+	}
+}
+
+func TestNoDefault(t *testing.T) {
+	jb := goadl.CreateJsonDecodeBinding(test01.Texpr_NoDefault(), goadl.RESOLVER)
+	sr := strings.NewReader(`{}`)
+	x := test01.NoDefault{}
+	err := jb.Decode(sr, &x)
+	if err == nil {
+		t.Error("Expecting an error, missing not default field")
+	}
 }

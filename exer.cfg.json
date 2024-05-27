@@ -1,9 +1,10 @@
 {
   "Searchdir": [
+    "adl/stdlib@1.2",
     "adl/exer"
   ],
   "Outputdir": "out",
-  "MergeAdlext": "",
+  "MergeAdlext": "adl-go",
   "Debug": true,
   "NoGoFmt": false,
   "GoAdlPath": "github.com/adl-lang/goadl_rt/v3",
