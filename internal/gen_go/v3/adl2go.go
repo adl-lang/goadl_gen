@@ -2,7 +2,11 @@ package gen_go_v2
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
+	goadl "github.com/adl-lang/goadl_rt/v3"
+	"github.com/adl-lang/goadl_rt/v3/adlc/config/go_"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
 	"github.com/adl-lang/goadlc/internal/gen_go/fn/slices"
 )
@@ -57,6 +61,41 @@ func (in *baseGen) GoType(
 			}, true}
 		},
 		func(ref adlast.ScopedName) goTypeExpr {
+			decl, ok := in.resolver(ref)
+			if !ok {
+				panic(fmt.Errorf("cannot find decl '%v", ref))
+			}
+			jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
+			gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
+			if err != nil {
+				panic(err)
+			}
+			if gct != nil {
+				pkg := gct.Helpers.Import_path[strings.LastIndex(gct.Helpers.Import_path, "/")+1:]
+				spec := importSpec{
+					Path:    gct.Helpers.Import_path,
+					Name:    gct.Helpers.Pkg,
+					Aliased: gct.Helpers.Pkg != pkg,
+				}
+				in.imports.addSpec(spec)
+				if in.cli.Debug {
+					fmt.Fprintf(os.Stderr, "GoType GoCustomType %v %v %v\n", gct, spec, pkg)
+				}
+				return goTypeExpr{
+					Pkg:  gct.Gotype.Pkg,
+					Type: gct.Gotype.Name,
+					TypeParams: typeParam{
+						ps: slices.Map[go_.TypeParam, string](gct.Gotype.Type_params, func(a go_.TypeParam) string {
+							return a.Name
+						}),
+					},
+					// TypeParams: typeParam{
+					// 	ps: slices.Map(goTypeParams, func(a goTypeExpr) string { return a.String() }),
+					// },
+					IsTypeParam: false,
+				}
+			}
+
 			packageName := ""
 			if in.moduleName != ref.ModuleName {
 				packageName = in.imports.addModule(ref.ModuleName, in.modulePath, in.midPath)

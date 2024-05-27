@@ -12,6 +12,7 @@ import (
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
+	"github.com/adl-lang/goadl_rt/v3/types"
 )
 
 func TestNewTypePrim(t *testing.T) {
@@ -527,7 +528,7 @@ func TestEncDec(t *testing.T) {
 
 func TestSetTest(t *testing.T) {
 	st := test01.New_SetTest(
-		goadl.MapSet[string]{
+		types.MapSet[string]{
 			"a": {},
 			"b": {},
 			"c": {},

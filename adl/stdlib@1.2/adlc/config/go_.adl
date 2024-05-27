@@ -1,0 +1,39 @@
+module adlc.config.go_ {
+
+/// ADL declaration annotation to specify the custom type to use
+struct GoCustomType
+{
+    /// The Go struct to use
+    ///
+    /// Note currently interfaces are not supported
+    GoType gotype;
+
+    /// The Go structed which implements json Marshal and Unmarshal for the gotype.
+    ///
+    /// Note Marshal and Unmarshal must be implemented for the specified struct's nil ptr
+    GoHelperType helpers;
+
+    // // If true, we still generate the standard ADL derived
+    // // class (even though no generated code will refer to it)
+    // Bool generateType = false;
+};
+
+struct GoType {
+    String name;
+    String pkg;
+    String import_path;
+    Vector<TypeParam> type_params;
+};
+
+struct TypeParam {
+    String name;
+    String implements;
+};
+
+struct GoHelperType {
+    String name;
+    String pkg;
+    String import_path;
+};
+
+};

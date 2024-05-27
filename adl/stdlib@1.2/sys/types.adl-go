@@ -1,18 +1,21 @@
 module sys.types
 {
 
-import adlc.config.go.*;
+import adlc.config.go_.*;
 
 annotation Set GoCustomType {
   "gotype" : {
-    "pkg_dot_name": "goadl.MapSet",
+    "name": "MapSet",
+    "pkg": "goadl",
     "import_path": "github.com/adl-lang/goadl_rt/v3",
-    "import_alias": "goadl"
+    "type_params": [
+      {"name": "T", "implements": "comparable"}
+    ]
   },
   "helpers" : {
-    "pkg_dot_name": "goadl.SetHelper",
-    "import_path": "github.com/adl-lang/goadl_rt/v3",
-    "import_alias": "goadl"
+    "name": "SetHelper",
+    "pkg": "goadl",
+    "import_path": "github.com/adl-lang/goadl_rt/v3"
   }
 };
 

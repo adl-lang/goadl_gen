@@ -121,6 +121,6 @@ type typeAliasParams struct {
 	G          *generator
 	Name       string
 	TypeParams typeParam
-	RType      goTypeExpr
+	TypeExpr   adlast.TypeExpr
 }
 type newTypeParams typeAliasParams

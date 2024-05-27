@@ -61,6 +61,12 @@ func (i *imports) byName(name string) (spec importSpec, ok bool) {
 	return importSpec{}, false
 }
 
+func (i *imports) addSpec(spec importSpec) (name string) {
+	spec0 := i.reserveSpec(spec)
+	i.used[spec0.Path] = true
+	return spec0.Name
+}
+
 func (i *imports) addModule(module string, modulePath, midPath string) (name string) {
 	if spec, ok := i.importMap[module]; ok {
 		if i.used[spec.Path] {

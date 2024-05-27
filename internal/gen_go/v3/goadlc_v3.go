@@ -28,12 +28,13 @@ func NewGenGoV3(rt *root.RootObj) any {
 		glog.Warningf(`error getting current working directory %v`, err)
 	}
 	return &goadlcCmd{
-		rt:         rt,
-		WorkingDir: wk,
-		Outputdir:  cwd,
-		ModuleMap:  []ImportMap{},
-		GenAstInfo: []GenAstInfo{},
-		GoAdlPath:  "github.com/adl-lang/goadl_rt/v2",
+		rt:          rt,
+		WorkingDir:  wk,
+		Outputdir:   cwd,
+		ModuleMap:   []ImportMap{},
+		GenAstInfo:  []GenAstInfo{},
+		GoAdlPath:   "github.com/adl-lang/goadl_rt/v2",
+		MergeAdlext: "go",
 	}
 }
 
@@ -251,11 +252,23 @@ func (in *goadlcCmd) Run() error {
 		}
 		goslices.Sort(declsNames)
 		for _, k := range declsNames {
+
 			decl := m.module.Decls[k]
-			declBody.generalDeclV3(declBody, decl)
-			if !in.ExcludeAst {
-				astBody.generalTexpr(astBody, decl)
-				astBody.generalReg(astBody, decl)
+			jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
+			gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
+			if err != nil {
+				panic(err)
+			}
+			if gct != nil {
+				if !in.ExcludeAst {
+					astBody.generalReg(astBody, decl)
+				}
+			} else {
+				declBody.generalDeclV3(declBody, decl)
+				if !in.ExcludeAst {
+					astBody.generalTexpr(astBody, decl)
+					astBody.generalReg(astBody, decl)
+				}
 			}
 		}
 		err := in.writeFile(m.name, modCodeGenPkg, declBody, filepath.Join(path, modCodeGenDir[len(modCodeGenDir)-1]+".go"), in.NoGoFmt, false)
@@ -363,6 +376,13 @@ func (in *goadlcCmd) writeFile(
 				Aliased: true,
 			})
 		}
+		if moduleName == "adlc.config.go_" {
+			useImports = append(useImports, importSpec{
+				Path:    in.GoAdlPath + "/adlc/config/go_",
+				Name:    ".",
+				Aliased: true,
+			})
+		}
 	}
 
 	header.rr.Render(importsParams{
@@ -465,7 +485,7 @@ func (base *baseGen) generalDeclV3(
 				G:          in,
 				Name:       decl.Name,
 				TypeParams: typeParam{td.TypeParams, false, base.stdLibGen},
-				RType:      in.GoType(td.TypeExpr),
+				TypeExpr:   td.TypeExpr,
 			})
 			return nil
 		},
@@ -474,7 +494,7 @@ func (base *baseGen) generalDeclV3(
 				G:          in,
 				Name:       decl.Name,
 				TypeParams: typeParam{nt.TypeParams, false, base.stdLibGen},
-				RType:      in.GoType(nt.TypeExpr),
+				TypeExpr:   nt.TypeExpr,
 			})
 			return nil
 		},
@@ -529,6 +549,44 @@ func (base *baseGen) generalReg(
 			nil,
 		),
 	})
+}
+
+var goCustomTypeSN = adlast.ScopedName{
+	ModuleName: "adlc.config.go_",
+	Name:       "GoCustomType",
+}
+
+func (in *generator) GoRegisterHelper(moduleName string, decl adlast.Decl) (string, error) {
+	jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
+	gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
+	if err != nil {
+		return "", err
+	}
+	if gct == nil {
+		return "", nil
+	}
+	if in.cli.StdLibGen && gct.Helpers.Import_path == in.cli.GoAdlPath {
+		return fmt.Sprintf(`	RESOLVER.RegisterHelper(
+			adlast.ScopedName{ModuleName: "%s", Name: "%s"},
+			(*%s)(nil),
+		)
+`, moduleName, decl.Name, gct.Helpers.Name), nil
+	}
+	pkg := gct.Helpers.Import_path[strings.LastIndex(gct.Helpers.Import_path, "/")+1:]
+	spec := importSpec{
+		Path:    gct.Helpers.Import_path,
+		Name:    gct.Helpers.Pkg,
+		Aliased: gct.Helpers.Pkg != pkg,
+	}
+	in.imports.addSpec(spec)
+	if in.cli.Debug {
+		fmt.Fprintf(os.Stderr, "GoCustomType %v %v %v\n", gct, spec, pkg)
+	}
+	return fmt.Sprintf(`	RESOLVER.RegisterHelper(
+			adlast.ScopedName{ModuleName: "%s", Name: "%s"},
+			(*%s%s)(nil),
+		)
+`, moduleName, decl.Name, gct.Helpers.Pkg+".", gct.Helpers.Name), nil
 }
 
 func makeFieldParam(f adlast.Field) fieldParams {

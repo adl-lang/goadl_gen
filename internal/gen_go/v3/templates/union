@@ -51,7 +51,7 @@ func Handle_{{$name}}{{$htp.LSide}}(
 	if _default != nil {
 		return _default()
 	}
-	panic("code gen error unhandled branch in : {{$name}}")
+	panic("unhandled branch in : {{$name}}")
 }
 
 func HandleWithErr_{{$name}}{{$htp.LSide}}(
@@ -69,5 +69,5 @@ func HandleWithErr_{{$name}}{{$htp.LSide}}(
 	if _default != nil {
 		return _default()
 	}
-	panic("code gen error unhandled branch in : {{$name}}")
+	panic("unhandled branch in : {{$name}}")
 }
