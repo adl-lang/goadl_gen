@@ -44,37 +44,27 @@ func (bg *generator) GoDeclValue(val adlast.Decl) string {
 	defer func() {
 		r := recover()
 		if r != nil {
-			// v := bytes.Buffer{}
-			// dec := goadl.NewEncoder(&v, goadl.Texpr_Decl(), goadl.RESOLVER)
-			// dec.Encode(val)
-			// fmt.Printf("DECL \n%s \n", v.String())
 			fmt.Fprintf(os.Stderr, "ERROR in GoDeclValue %v\n%v", r, string(debug.Stack()))
 			panic(r)
 		}
 	}()
-	// j, _ := json.Marshal(val)
-	// fmt.Printf("***\n%s\n***\n", string(j))
-
 	var buf bytes.Buffer
-	enc := goadl.NewEncoder(&buf, goadl.Texpr_Decl(), goadl.RESOLVER)
-	err := enc.Encode(val)
+	enc := goadl.CreateJsonEncodeBinding(goadl.Texpr_Decl(), goadl.RESOLVER)
+	err := enc.Encode(&buf, val)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "!!!! encode error %v\n", err)
 		panic(err)
 	}
 	var m any
-
-	// fmt.Printf("~~~\n%s\n~~~\n", buf.String())
-
 	dec := json.NewDecoder(&buf)
 	// dec.UseNumber()
 	err = dec.Decode(&m)
 	if err != nil {
-
 		fmt.Fprintf(os.Stderr, "!!!! decode error %v\n", err)
 		panic(err)
 	}
-	// TODO make it so we GoValue can take any or decl
+	// TODO make it so we GoValue can take both an any and a decl
+	// or make it so the encoder can encode to an any
 	return bg.GoValue(typeParam{}, declTexpr.Value, m)
 }
 

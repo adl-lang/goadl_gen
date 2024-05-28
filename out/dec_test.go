@@ -17,9 +17,9 @@ import (
 func TestNewTypePrim(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString("42")
-	dec := goadl.NewDecoder(out, test01.Texpr_A(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(test01.Texpr_A(), goadl.RESOLVER)
 	var y test01.A
-	err := dec.Decode(&y)
+	err := dec.Decode(out, &y)
 	if err != nil {
 		t.Fatalf("err : %v", err)
 	}
@@ -31,9 +31,9 @@ func TestNewTypePrim(t *testing.T) {
 func TestStructOfPrim(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"a":42}`)
-	dec := goadl.NewDecoder(out, test01.Texpr_B(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(test01.Texpr_B(), goadl.RESOLVER)
 	var y test01.B
-	err := dec.Decode(&y)
+	err := dec.Decode(out, &y)
 	if err != nil {
 		t.Fatalf("err : %v", err)
 	}
@@ -45,9 +45,9 @@ func TestStructOfPrim(t *testing.T) {
 func TestStructOfStruct(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"b": {"a":42}, "c": {"a": 3}}`)
-	dec := goadl.NewDecoder(out, test01.Texpr_C(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(test01.Texpr_C(), goadl.RESOLVER)
 	var y test01.C
-	err := dec.Decode(&y)
+	err := dec.Decode(out, &y)
 	if err != nil {
 		t.Fatalf("err : %v", err)
 	}
@@ -93,9 +93,9 @@ func TestReflectConstruction02(t *testing.T) {
 func TestTopLevelUnion01(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"a": 42}`)
-	dec := goadl.NewDecoder(out, test01.Texpr_D(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(test01.Texpr_D(), goadl.RESOLVER)
 	var y test01.D
-	err := dec.Decode(&y)
+	err := dec.Decode(out, &y)
 	if err != nil {
 		t.Fatalf("err : %v", err)
 	}
@@ -116,9 +116,9 @@ func TestTypeCast(t *testing.T) {
 func TestTopLevelUnion02(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"b": {"a":42}}`)
-	dec := goadl.NewDecoder(out, test01.Texpr_D(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(test01.Texpr_D(), goadl.RESOLVER)
 	var y test01.D
-	err := dec.Decode(&y)
+	err := dec.Decode(out, &y)
 	if err != nil {
 		t.Fatalf("err : %v", err)
 	}
@@ -130,9 +130,9 @@ func TestTopLevelUnion02(t *testing.T) {
 func TestUnionInStruct(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"d":{"b": {"a":42}}}`)
-	dec := goadl.NewDecoder(out, test01.Texpr_E(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(test01.Texpr_E(), goadl.RESOLVER)
 	var y test01.E
-	err := dec.Decode(&y)
+	err := dec.Decode(out, &y)
 	if err != nil {
 		t.Fatalf("err : %v", err)
 	}
@@ -166,15 +166,15 @@ func TestPrims(t *testing.T) {
 		R: goadl.Void{},
 	}
 	buf := bytes.Buffer{}
-	enc := goadl.NewEncoder(&buf, test01.Texpr_F(), goadl.RESOLVER)
-	err := enc.Encode(p)
+	enc := goadl.CreateJsonEncodeBinding(test01.Texpr_F(), goadl.RESOLVER)
+	err := enc.Encode(&buf, p)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
 	// fmt.Printf("%v\n", buf.String())
-	dec := goadl.NewDecoder(&buf, test01.Texpr_F(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(test01.Texpr_F(), goadl.RESOLVER)
 	pIn := test01.F{}
-	err = dec.Decode(&pIn)
+	err = dec.Decode(&buf, &pIn)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
@@ -188,8 +188,8 @@ pIn :%+#v
 	// fmt.Printf("out == in\npOut:%+v\npIn :%+v\n", p, pIn)
 
 	buf2 := bytes.Buffer{}
-	enc2 := goadl.NewEncoder(&buf2, test01.Texpr_F(), goadl.RESOLVER)
-	err = enc2.Encode(p)
+	enc2 := goadl.CreateJsonEncodeBinding(test01.Texpr_F(), goadl.RESOLVER)
+	err = enc2.Encode(&buf2, p)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
@@ -199,9 +199,9 @@ pIn :%+#v
 func TestStructRecurse(t *testing.T) {
 	out := &bytes.Buffer{}
 	out.WriteString(`{"a":[{"a":[]}]}`)
-	dec := goadl.NewDecoder(out, test01.Texpr_G(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(test01.Texpr_G(), goadl.RESOLVER)
 	var y test01.G
-	err := dec.Decode(&y)
+	err := dec.Decode(out, &y)
 	if err != nil {
 		t.Fatalf("err : %v", err)
 	}
@@ -211,8 +211,8 @@ func TestStructRecurse(t *testing.T) {
 	}
 
 	buf := bytes.Buffer{}
-	enc := goadl.NewEncoder(&buf, test01.Texpr_G(), goadl.RESOLVER)
-	err = enc.Encode(y)
+	enc := goadl.CreateJsonEncodeBinding(test01.Texpr_G(), goadl.RESOLVER)
+	err = enc.Encode(&buf, y)
 	if err != nil {
 		t.Fatalf("err : %v", err)
 	}
@@ -227,16 +227,16 @@ func TestAdlAst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't read combined.json err:%v", err)
 	}
-	dec := goadl.NewDecoder(cj, goadl.Texpr_StringMap(goadl.Texpr_Module()), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(goadl.Texpr_StringMap(goadl.Texpr_Module()), goadl.RESOLVER)
 	var ast map[string]adlast.Module
-	err = dec.Decode(&ast)
+	err = dec.Decode(cj, &ast)
 	if err != nil {
 		t.Errorf("%v", err)
 	}
 	// fmt.Printf("%+v\n", ast)
 	buf := bytes.Buffer{}
-	enc := goadl.NewEncoder(&buf, goadl.Texpr_StringMap(goadl.Texpr_Module()), goadl.RESOLVER)
-	err = enc.Encode(ast)
+	enc := goadl.CreateJsonEncodeBinding(goadl.Texpr_StringMap(goadl.Texpr_Module()), goadl.RESOLVER)
+	err = enc.Encode(&buf, ast)
 	if err != nil {
 		t.Fatalf("err:%v", err)
 	}
@@ -271,14 +271,14 @@ func TestUnchecked(t *testing.T) {
 		var texpr = test01.Texpr_Int().Value
 
 		buf := bytes.Buffer{}
-		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err := enc.Encode(x)
+		enc := goadl.CreateUncheckedJsonEncodeBinding(texpr, goadl.RESOLVER)
+		err := enc.Encode(&buf, x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err = dec.Decode(&y)
+		dec := goadl.CreateUncheckedJsonDecodeBinding(texpr, goadl.RESOLVER)
+		err = dec.Decode(&buf, &y)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -292,14 +292,14 @@ func TestUnchecked(t *testing.T) {
 		var texpr = test01.Texpr_Int().Value
 
 		buf := bytes.Buffer{}
-		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err := enc.Encode(&x)
+		enc := goadl.CreateUncheckedJsonEncodeBinding(texpr, goadl.RESOLVER)
+		err := enc.Encode(&buf, &x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err = dec.Decode(&y)
+		dec := goadl.CreateUncheckedJsonDecodeBinding(texpr, goadl.RESOLVER)
+		err = dec.Decode(&buf, &y)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -313,14 +313,14 @@ func TestUnchecked(t *testing.T) {
 		var texpr = test01.Texpr_Int().Value
 
 		buf := bytes.Buffer{}
-		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err := enc.Encode(x)
+		enc := goadl.CreateUncheckedJsonEncodeBinding(texpr, goadl.RESOLVER)
+		err := enc.Encode(&buf, x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err = dec.Decode(y)
+		dec := goadl.CreateUncheckedJsonDecodeBinding(texpr, goadl.RESOLVER)
+		err = dec.Decode(&buf, y)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -334,14 +334,14 @@ func TestUnchecked(t *testing.T) {
 		var texpr = test01.Texpr_Int().Value
 
 		buf := bytes.Buffer{}
-		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err := enc.Encode(&x)
+		enc := goadl.CreateUncheckedJsonEncodeBinding(texpr, goadl.RESOLVER)
+		err := enc.Encode(&buf, &x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err = dec.Decode(y)
+		dec := goadl.CreateUncheckedJsonDecodeBinding(texpr, goadl.RESOLVER)
+		err = dec.Decode(&buf, y)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -356,14 +356,14 @@ func TestUnchecked(t *testing.T) {
 		var texpr = test01.Texpr_Int().Value
 
 		buf := bytes.Buffer{}
-		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err := enc.Encode(x)
+		enc := goadl.CreateUncheckedJsonEncodeBinding(texpr, goadl.RESOLVER)
+		err := enc.Encode(&buf, x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err = dec.Decode(y)
+		dec := goadl.CreateUncheckedJsonDecodeBinding(texpr, goadl.RESOLVER)
+		err = dec.Decode(&buf, y)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -378,14 +378,14 @@ func TestUnchecked(t *testing.T) {
 		var texpr = test01.Texpr_Int().Value
 
 		buf := bytes.Buffer{}
-		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err := enc.Encode(x)
+		enc := goadl.CreateUncheckedJsonEncodeBinding(texpr, goadl.RESOLVER)
+		err := enc.Encode(&buf, x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err = dec.Decode(y)
+		dec := goadl.CreateUncheckedJsonDecodeBinding(texpr, goadl.RESOLVER)
+		err = dec.Decode(&buf, y)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -400,14 +400,14 @@ func TestUnchecked(t *testing.T) {
 		var texpr = test01.Texpr_Int().Value
 
 		buf := bytes.Buffer{}
-		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err := enc.Encode(&x)
+		enc := goadl.CreateUncheckedJsonEncodeBinding(texpr, goadl.RESOLVER)
+		err := enc.Encode(&buf, &x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err = dec.Decode(y)
+		dec := goadl.CreateUncheckedJsonDecodeBinding(texpr, goadl.RESOLVER)
+		err = dec.Decode(&buf, y)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -422,14 +422,14 @@ func TestUnchecked(t *testing.T) {
 		var texpr = test01.Texpr_Int().Value
 
 		buf := bytes.Buffer{}
-		enc := goadl.NewEncoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err := enc.Encode(&x)
+		enc := goadl.CreateUncheckedJsonEncodeBinding(texpr, goadl.RESOLVER)
+		err := enc.Encode(&buf, &x)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		dec := goadl.NewDecoderUnchecked(&buf, texpr, goadl.RESOLVER)
-		err = dec.Decode(&y)
+		dec := goadl.CreateUncheckedJsonDecodeBinding(texpr, goadl.RESOLVER)
+		err = dec.Decode(&buf, &y)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -505,14 +505,14 @@ func TestEncDec(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			buf := bytes.Buffer{}
-			enc := goadl.NewEncoderUnchecked(&buf, tC.texpr, goadl.RESOLVER)
-			err := enc.Encode(tC.x)
+			enc := goadl.CreateUncheckedJsonEncodeBinding(tC.texpr, goadl.RESOLVER)
+			err := enc.Encode(&buf, tC.x)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			dec := goadl.NewDecoderUnchecked(&buf, tC.texpr, goadl.RESOLVER)
-			err = dec.Decode(tC.y)
+			dec := goadl.CreateUncheckedJsonDecodeBinding(tC.texpr, goadl.RESOLVER)
+			err = dec.Decode(&buf, tC.y)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -535,18 +535,18 @@ func TestSetTest(t *testing.T) {
 	)
 	// for i := 0; i < 8; i++ {
 	// 	buf := bytes.Buffer{}
-	// 	enc := goadl.NewEncoder(&buf, test01.Texpr_SetTest(), goadl.RESOLVER)
-	// 	// enc := goadl.NewEncoder(&buf, goadl.Texpr_Set(goadl.Texpr_String()), goadl.RESOLVER)
+	// 	enc := goadl.CreateJsonEncodeBinding( test01.Texpr_SetTest(), goadl.RESOLVER)
+	// 	// enc := goadl.CreateJsonEncodeBinding( goadl.Texpr_Set(goadl.Texpr_String()), goadl.RESOLVER)
 	// 	enc.Encode(st)
 	// 	fmt.Printf("%s\n", buf.String())
 	// }
 	buf := bytes.Buffer{}
-	enc := goadl.NewEncoder(&buf, test01.Texpr_SetTest(), goadl.RESOLVER)
-	// enc := goadl.NewEncoder(&buf, goadl.Texpr_Set(goadl.Texpr_String()), goadl.RESOLVER)
-	enc.Encode(st)
-	dec := goadl.NewDecoder(&buf, test01.Texpr_SetTest(), goadl.RESOLVER)
+	enc := goadl.CreateJsonEncodeBinding(test01.Texpr_SetTest(), goadl.RESOLVER)
+	// enc := goadl.CreateJsonEncodeBinding( goadl.Texpr_Set(goadl.Texpr_String()), goadl.RESOLVER)
+	enc.Encode(&buf, st)
+	dec := goadl.CreateJsonDecodeBinding(test01.Texpr_SetTest(), goadl.RESOLVER)
 	st2 := test01.SetTest{}
-	err := dec.Decode(&st2)
+	err := dec.Decode(&buf, &st2)
 	if err != nil {
 		t.Error(err)
 	}

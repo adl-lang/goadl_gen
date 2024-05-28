@@ -192,8 +192,8 @@ func (in *goadlcCmd) setup() (
 	jb := func(fd io.Reader) (map[string]adlast.Module, map[string]adlast.Decl, error) {
 		combinedAst = make(map[string]adlast.Module)
 		declMap := make(map[string]adlast.Decl)
-		dec := goadl.NewDecoder(fd, goadl.Texpr_StringMap[adlast.Module](goadl.Texpr_Module()), goadl.RESOLVER)
-		err := dec.Decode(&combinedAst)
+		dec := goadl.CreateJsonDecodeBinding(goadl.Texpr_StringMap[adlast.Module](goadl.Texpr_Module()), goadl.RESOLVER)
+		err := dec.Decode(fd, &combinedAst)
 		if err != nil {
 			return nil, nil, err
 		}

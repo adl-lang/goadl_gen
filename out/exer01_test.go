@@ -15,14 +15,14 @@ import (
 func TestEnum(t *testing.T) {
 	x := simple_union.Make_UnionOfVoids_g(struct{}{})
 	out := &bytes.Buffer{}
-	enc := goadl.NewEncoder(out, simple_union.Texpr_UnionOfVoids(), goadl.RESOLVER)
-	err := enc.Encode(x)
+	enc := goadl.CreateJsonEncodeBinding(simple_union.Texpr_UnionOfVoids(), goadl.RESOLVER)
+	err := enc.Encode(out, x)
 	if err != nil {
 		t.Error(err)
 	}
-	dec := goadl.NewDecoder(out, simple_union.Texpr_UnionOfVoids(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(simple_union.Texpr_UnionOfVoids(), goadl.RESOLVER)
 	var y simple_union.UnionOfVoids
-	err = dec.Decode(&y)
+	err = dec.Decode(out, &y)
 	if err != nil {
 		t.Error(err)
 	}
@@ -34,8 +34,8 @@ func TestEnum(t *testing.T) {
 func TestUnion(t *testing.T) {
 	x := simple_union.Make_UnionOfPrimitives_A(42)
 	out := &bytes.Buffer{}
-	enc := goadl.NewEncoder(out, simple_union.Texpr_UnionOfPrimitives(), goadl.RESOLVER)
-	err := enc.Encode(x)
+	enc := goadl.CreateJsonEncodeBinding(simple_union.Texpr_UnionOfPrimitives(), goadl.RESOLVER)
+	err := enc.Encode(out, x)
 	if err != nil {
 		t.Error(err)
 	}
@@ -43,9 +43,9 @@ func TestUnion(t *testing.T) {
 	if `{"A":42}` != out.String() {
 		t.Error(`{"A":42} != out.String()`)
 	}
-	dec := goadl.NewDecoder(out, simple_union.Texpr_UnionOfPrimitives(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(simple_union.Texpr_UnionOfPrimitives(), goadl.RESOLVER)
 	var y simple_union.UnionOfPrimitives
-	err = dec.Decode(&y)
+	err = dec.Decode(out, &y)
 	if err != nil {
 		t.Error(err)
 	}
@@ -66,14 +66,14 @@ func TestUnions(t *testing.T) {
 	}
 	out := &bytes.Buffer{}
 	te := goadl.Texpr_Vector(simple_union.Texpr_UnionOfPrimitives())
-	enc := goadl.NewEncoder(out, te, goadl.RESOLVER)
-	enc.Encode(xs)
+	enc := goadl.CreateJsonEncodeBinding(te, goadl.RESOLVER)
+	enc.Encode(out, xs)
 	if `[{"A":42},{"B":41},{"c":true},{"d":41.01},{"e":"sdfadf"},{"f":["a","b","v"]},{"g":null}]` != out.String() {
 		t.Error("json str !=")
 	}
-	dec := goadl.NewDecoder(out, te, goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(te, goadl.RESOLVER)
 	ys := []simple_union.UnionOfPrimitives{}
-	err := dec.Decode(&ys)
+	err := dec.Decode(out, &ys)
 	if err != nil {
 		t.Error(err)
 	}
@@ -100,13 +100,13 @@ func TestStruct01(t *testing.T) {
 	}
 
 	out := &bytes.Buffer{}
-	enc := goadl.NewEncoder[struct01.Struct01](out, struct01.Texpr_Struct01(), goadl.RESOLVER)
-	enc.Encode(x)
+	enc := goadl.CreateJsonEncodeBinding[struct01.Struct01](struct01.Texpr_Struct01(), goadl.RESOLVER)
+	enc.Encode(out, x)
 	o1 := out.String()
 
-	dec := goadl.NewDecoder(out, struct01.Texpr_Struct01(), goadl.RESOLVER)
+	dec := goadl.CreateJsonDecodeBinding(struct01.Texpr_Struct01(), goadl.RESOLVER)
 	y := struct01.Struct01{}
-	err := dec.Decode(&y)
+	err := dec.Decode(out, &y)
 	if err != nil {
 		t.Error(err)
 	}
@@ -114,8 +114,8 @@ func TestStruct01(t *testing.T) {
 	// 	t.Errorf("not equal\n%+v\n%+v\n", x, y)
 	// }
 	sb := strings.Builder{}
-	enc2 := goadl.NewEncoder[struct01.Struct01](&sb, struct01.Texpr_Struct01(), goadl.RESOLVER)
-	enc2.Encode(x)
+	enc2 := goadl.CreateJsonEncodeBinding[struct01.Struct01](struct01.Texpr_Struct01(), goadl.RESOLVER)
+	enc2.Encode(&sb, x)
 	o2 := sb.String()
 	if o1 != o2 {
 		t.Errorf("json !=")
