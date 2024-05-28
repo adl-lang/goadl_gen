@@ -1,4 +1,4 @@
-package gen_go_v2
+package gen_go
 
 import (
 	"encoding/json"

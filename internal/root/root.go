@@ -22,7 +22,8 @@ func (rt RootObj) Config(in interface{}) {
 			fd.Close()
 		}()
 		if err != nil {
-			log.Fatalf("error opening file %s %v", rt.Cfg, err)
+			cwd, _ := os.Getwd()
+			log.Fatalf("error opening file cwd:%s cfg:%s err:%v", cwd, rt.Cfg, err)
 		}
 		dec := json.NewDecoder(fd)
 		err = dec.Decode(in)

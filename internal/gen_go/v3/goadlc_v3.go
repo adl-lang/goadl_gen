@@ -1,4 +1,4 @@
-package gen_go_v2
+package gen_go
 
 import (
 	"fmt"
@@ -138,12 +138,25 @@ type baseGen struct {
 }
 
 func (in *goadlcCmd) Run() error {
+	return in.generate(in.setup())
+}
+
+func (in *goadlcCmd) setup() (
+	combinedAst map[string]adlast.Module,
+	declMap map[string]adlast.Decl,
+	importMap map[string]importSpec,
+	modulePath string,
+	midPath string,
+	modules []namedModule,
+	setupErr error,
+) {
 	in.rt.Config(in)
 
-	importMap := map[string]importSpec{}
+	importMap = map[string]importSpec{}
 	for _, im := range in.ModuleMap {
 		if _, ok := importMap[im.ModuleName]; ok {
-			return fmt.Errorf("duplicate module in --module-map '%s'", im.ModuleName)
+			setupErr = fmt.Errorf("duplicate module in --module-map '%s'", im.ModuleName)
+			return
 		}
 		importMap[im.ModuleName] = importSpec{
 			Path:    im.Path,
@@ -155,15 +168,18 @@ func (in *goadlcCmd) Run() error {
 	cwd, err := os.Getwd()
 	dFs := os.DirFS(cwd)
 	if err != nil {
-		return fmt.Errorf("can't get cwd : %v", err)
+		setupErr = fmt.Errorf("can't get cwd : %v", err)
+		return
 	}
 	if len(in.Files) == 0 {
-		return fmt.Errorf("no file or pattern specified")
+		setupErr = fmt.Errorf("no file or pattern specified")
+		return
 	}
 	for _, p := range in.Files {
 		matchs, err := fs.Glob(dFs, p)
 		if err != nil {
-			return fmt.Errorf("error globbing file : %v", err)
+			setupErr = fmt.Errorf("error globbing file : %v", err)
+			return
 		}
 		in.files = append(in.files, matchs...)
 	}
@@ -175,7 +191,7 @@ func (in *goadlcCmd) Run() error {
 	}
 
 	jb := func(fd io.Reader) (map[string]adlast.Module, map[string]adlast.Decl, error) {
-		combinedAst := make(map[string]adlast.Module)
+		combinedAst = make(map[string]adlast.Module)
 		declMap := make(map[string]adlast.Decl)
 		dec := goadl.NewDecoder(fd, goadl.Texpr_StringMap[adlast.Module](goadl.Texpr_Module()), goadl.RESOLVER)
 		err := dec.Decode(&combinedAst)
@@ -190,19 +206,33 @@ func (in *goadlcCmd) Run() error {
 		return combinedAst, declMap, nil
 	}
 
-	modules := []namedModule{}
-	combinedAst, declMap, err := loadAdl(in, &modules, jb)
+	modules = []namedModule{}
+	combinedAst, declMap, setupErr = loadAdl(in, &modules, jb)
 	_ = combinedAst
 	// _ = declMap
-	if err != nil {
+	if setupErr != nil {
 		os.Exit(1)
 	}
 
-	modulePath, midPath, err := in.modpath()
-	if err != nil {
-		return err
+	modulePath, midPath, setupErr = in.modpath()
+	if setupErr != nil {
+		return
 	}
+	return
+}
 
+func (in *goadlcCmd) generate(
+	combinedAst map[string]adlast.Module,
+	declMap map[string]adlast.Decl,
+	importMap map[string]importSpec,
+	modulePath string,
+	midPath string,
+	modules []namedModule,
+	setupErr error,
+) error {
+	if setupErr != nil {
+		return setupErr
+	}
 	resolver := func(sn adlast.ScopedName) (*adlast.Decl, bool) {
 		mod, ok := combinedAst[sn.ModuleName]
 		if !ok {

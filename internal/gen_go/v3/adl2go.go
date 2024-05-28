@@ -1,8 +1,7 @@
-package gen_go_v2
+package gen_go
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
@@ -77,17 +76,9 @@ func (in *baseGen) GoType(
 					Aliased: gct.Helpers.Pkg != pkg,
 				}
 				in.imports.addSpec(spec)
-				if in.cli.Debug {
-					fmt.Fprintf(os.Stderr, "GoType GoCustomType %v %v %v\n", gct, spec, pkg)
-				}
 				return goTypeExpr{
 					Pkg:  gct.Gotype.Pkg,
 					Type: gct.Gotype.Name,
-					// TypeParams: typeParam{
-					// 	ps: slices.Map[go_.TypeParam, string](gct.Gotype.Type_params, func(a go_.TypeParam) string {
-					// 		return a.Name
-					// 	}),
-					// },
 					TypeParams: typeParam{
 						ps: slices.Map(typeExpr.Parameters, func(a adlast.TypeExpr) string {
 							pt := in.GoType(a)
