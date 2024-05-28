@@ -101,12 +101,31 @@ func (bg *baseGen) goValue(ctx valContext, decl_tp typeParam, te adlast.TypeExpr
 			panic("unbound typeParam " + typeParam)
 		},
 		func(ref adlast.ScopedName) string {
+			gt := bg.GoType(te)
+
 			ctx0 := valContext{append(ctx.path, ref.Name)}
 			decl, ok := bg.resolver(ref)
 			if !ok {
 				panic(fmt.Errorf("cannot resolve %v", ref))
 			}
 			tp := typeParamsFromDecl(*decl)
+
+			jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
+			gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
+			if err != nil {
+				panic(err)
+			}
+			if gct != nil {
+				pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
+				spec := importSpec{
+					Path:    gct.Gotype.Import_path,
+					Name:    gct.Gotype.Pkg,
+					Aliased: gct.Gotype.Pkg != pkg,
+				}
+				bg.imports.addSpec(spec)
+				return fmt.Sprintf("%s.%s%s{}", gct.Gotype.Pkg, gct.Gotype.Name, gt.TypeParams.RSide())
+			}
+
 			return bg.goValueScopedName(ctx0, tp, te, ref, val)
 		},
 		nil,
@@ -164,7 +183,7 @@ func (bg *baseGen) goValuePrimitive(
 		}
 		return "&" + bg.goValue(ctx, decl_tp, te.Parameters[0], val)
 	}
-	panic("??? GoValuePrimitive")
+	panic("Unknown GoValuePrimitive")
 }
 
 // func (bg *baseGen) goValuePrimitiveJson(
@@ -193,12 +212,7 @@ func (bg *baseGen) goValueScopedName(
 		panic(fmt.Errorf("path : %s - len(decl typeparams) != len(gt.TypeParams.ps)\n%+v\n%+v",
 			ctx.path, decl_tp.ps, te.Parameters))
 	}
-	tpMap := map[string]adlast.TypeExpr{}
-	for i, tp := range decl_tp.ps {
-		tpMap[tp] = te.Parameters[i]
-	}
-
-	// decl, ok := bg.declMap[ref.ModuleName+"::"+ref.Name]
+	tbind := goadl.CreateDecBoundTypeParams(decl_tp.ps, te.Parameters)
 	decl, ok := bg.resolver(ref)
 	if !ok {
 		panic(fmt.Errorf("path %v - decl not in map : %v", ctx.path, ref))
@@ -210,7 +224,8 @@ func (bg *baseGen) goValueScopedName(
 			ret := slices.FlatMap[adlast.Field, string](struct_.Fields, func(f adlast.Field) []string {
 				ret := []string{}
 				if v, ok := m[f.SerializedName]; ok {
-					monoTe := defunctionalizeTe(tpMap, f.TypeExpr)
+					monoTe := goadl.SubstituteTypeBindings(tbind, f.TypeExpr)
+					// monoTe := defunctionalizeTe(tpMap, f.TypeExpr)
 					ctx0 := valContext{append(ctx.path, f.Name)}
 					fgv := bg.goValue(ctx0, decl_tp, monoTe, v)
 					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
@@ -227,7 +242,7 @@ func (bg *baseGen) goValueScopedName(
 						func(just any) any {
 							// fmt.Printf("???????2 %#+v\n", just)
 							val := reflect.ValueOf(just).Interface()
-							monoTe := defunctionalizeTe(tpMap, f.TypeExpr)
+							monoTe := goadl.SubstituteTypeBindings(tbind, f.TypeExpr)
 							ctx0 := valContext{append(ctx.path, f.Name)}
 							// fmt.Printf("~~~ %#+v\n", val)
 							fgv := bg.goValue(ctx0, decl_tp, monoTe, val)
@@ -271,8 +286,7 @@ func (bg *baseGen) goValueScopedName(
 			if fld == nil {
 				panic(fmt.Errorf("unexpected branch - no type registered '%v'", k))
 			}
-			monoTe := defunctionalizeTe(tpMap, fld.TypeExpr)
-			// monoTe.Parameters
+			monoTe := goadl.SubstituteTypeBindings(tbind, fld.TypeExpr)
 			f_tp := typeParam{
 				ps: slices.Map[adlast.TypeExpr, string](monoTe.Parameters, func(a adlast.TypeExpr) string {
 					return bg.GoType(a).Type
@@ -280,13 +294,19 @@ func (bg *baseGen) goValueScopedName(
 			}
 
 			if f_tp0, ok := fld.TypeExpr.TypeRef.Branch.(adlast.TypeRef_TypeParam); ok {
-				monoFtp, ok := tpMap[f_tp0.V]
+				ok := false
+				for _, x := range tbind {
+					if x.Name == f_tp0.V {
+						ok = true
+						monoGt := bg.GoType(x.Value)
+						f_tp = typeParam{
+							ps: []string{monoGt.Type},
+						}
+						break
+					}
+				}
 				if !ok {
 					panic(fmt.Errorf("type param not found"))
-				}
-				monoGt := bg.GoType(monoFtp)
-				f_tp = typeParam{
-					ps: []string{monoGt.Type},
 				}
 			}
 			ctx0 := valContext{append(ctx.path, fld.Name)}
@@ -307,12 +327,11 @@ func (bg *baseGen) goValueScopedName(
 
 		},
 		func(type_ adlast.TypeDef) string {
-			monoTe := defunctionalizeTe(tpMap, type_.TypeExpr)
+			monoTe := goadl.SubstituteTypeBindings(tbind, type_.TypeExpr)
 			return bg.goValue(ctx, typeParam{ps: type_.TypeParams}, monoTe, val)
-			// panic(fmt.Errorf("path %v - todo typede", ctx.path))
 		},
 		func(newtype_ adlast.NewType) string {
-			monoTe := defunctionalizeTe(tpMap, newtype_.TypeExpr)
+			monoTe := goadl.SubstituteTypeBindings(tbind, newtype_.TypeExpr)
 			return fmt.Sprintf("%s(%s)", gt.String(), bg.goValue(ctx, typeParam{ps: newtype_.TypeParams}, monoTe, val))
 		},
 		nil,

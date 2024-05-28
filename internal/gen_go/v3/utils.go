@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
-	"github.com/golang/glog"
 )
 
 type ModuleCodeGen struct {
@@ -116,8 +115,9 @@ func loadAdl(
 	// dec := json.NewDecoder(fd)
 	// err = dec.Decode(&combinedAst)
 	if err != nil {
-		glog.Errorf("decoding ast error %v\n", err)
-		return nil, nil, err
+		panic(err)
+		// glog.Errorf("decoding ast error %v\n", err)
+		// return nil, nil, err
 	}
 	for k := range combinedAst {
 		if in.Debug {

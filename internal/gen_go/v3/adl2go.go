@@ -69,11 +69,11 @@ func (in *baseGen) GoType(
 				panic(err)
 			}
 			if gct != nil {
-				pkg := gct.Helpers.Import_path[strings.LastIndex(gct.Helpers.Import_path, "/")+1:]
+				pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
 				spec := importSpec{
-					Path:    gct.Helpers.Import_path,
-					Name:    gct.Helpers.Pkg,
-					Aliased: gct.Helpers.Pkg != pkg,
+					Path:    gct.Gotype.Import_path,
+					Name:    gct.Gotype.Pkg,
+					Aliased: gct.Gotype.Pkg != pkg,
 				}
 				in.imports.addSpec(spec)
 				return goTypeExpr{

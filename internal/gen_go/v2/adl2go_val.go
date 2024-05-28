@@ -83,7 +83,7 @@ func (bg *baseGen) goValue(ctx valContext, decl_tp typeParam, te goadl.TypeExpr,
 		},
 		func(typeParam string) string {
 			// return typeParam
-			panic("???GoValue:typeParam " + typeParam)
+			panic("unexpected typeParam " + typeParam)
 		},
 		func(ref goadl.ScopedName) string {
 			ctx0 := valContext{append(ctx.path, ref.Name)}
@@ -150,7 +150,7 @@ func (bg *baseGen) goValuePrimitive(
 		}
 		return "&" + bg.goValue(ctx, decl_tp, te.Parameters[0], val)
 	}
-	panic("??? GoValuePrimitive")
+	panic("unknown GoValuePrimitive")
 }
 
 // func (bg *baseGen) goValuePrimitiveJson(

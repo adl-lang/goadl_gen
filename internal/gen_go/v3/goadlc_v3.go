@@ -195,7 +195,8 @@ func (in *goadlcCmd) setup() (
 		dec := goadl.CreateJsonDecodeBinding(goadl.Texpr_StringMap[adlast.Module](goadl.Texpr_Module()), goadl.RESOLVER)
 		err := dec.Decode(fd, &combinedAst)
 		if err != nil {
-			return nil, nil, err
+			panic(fmt.Errorf("%w", err))
+			// return nil, nil, err
 		}
 		for k, v := range combinedAst {
 			for dk, dv := range v.Decls {
