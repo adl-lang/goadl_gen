@@ -1,6 +1,7 @@
 package gen_go
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"unicode"
@@ -34,6 +35,18 @@ func newImports(
 		im.specs = append(im.specs, spec)
 	}
 	return im
+}
+
+func (bg *baseGen) GoImport(pkg string) (string, error) {
+	if bg.stdLibGen && pkg == "goadl" {
+		return "", nil
+	}
+	if spec, ok := bg.imports.byName(pkg); !ok {
+		return "", fmt.Errorf("unknown import %s", pkg)
+	} else {
+		bg.imports.addPath(spec.Path)
+		return spec.Name + ".", nil
+	}
 }
 
 func (spec importSpec) String() string {

@@ -11,7 +11,6 @@ import (
 
 var (
 	combinedAst map[string]adlast.Module
-	declMap     map[string]adlast.Decl
 	importMap   map[string]importSpec
 	modulePath  string
 	midPath     string
@@ -32,7 +31,7 @@ func init() {
 		Cfg: "adlast.cfg.json",
 	}
 	cmd = NewGenGoV3(rt).(*goadlcCmd)
-	combinedAst, declMap, importMap, modulePath, midPath, modules, setupErr = cmd.setup()
+	combinedAst, importMap, modulePath, midPath, modules, setupErr = cmd.setup()
 	cmd.Debug = false
 }
 
@@ -42,6 +41,6 @@ func BenchmarkGen(t *testing.B) {
 		t.Fatal(setupErr)
 	}
 	for i := 0; i < t.N; i++ {
-		cmd.generate(combinedAst, declMap, importMap, modulePath, midPath, modules, setupErr)
+		cmd.generate(combinedAst, importMap, modulePath, midPath, modules, setupErr)
 	}
 }

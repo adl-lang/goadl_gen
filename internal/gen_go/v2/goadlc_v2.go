@@ -405,7 +405,7 @@ func (in *goadlcV2Cmd) reservedImports() []importSpec {
 	}
 }
 
-func (bg *baseGen) Import(pkg string) (string, error) {
+func (bg *baseGen) GoImport(pkg string) (string, error) {
 	if bg.stdLibGen && pkg == "goadl" {
 		return "", nil
 	}

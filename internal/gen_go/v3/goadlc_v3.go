@@ -143,7 +143,6 @@ func (in *goadlcCmd) Run() error {
 
 func (in *goadlcCmd) setup() (
 	combinedAst map[string]adlast.Module,
-	declMap map[string]adlast.Decl,
 	importMap map[string]importSpec,
 	modulePath string,
 	midPath string,
@@ -207,9 +206,9 @@ func (in *goadlcCmd) setup() (
 	}
 
 	modules = []namedModule{}
+	var declMap map[string]adlast.Decl
 	combinedAst, declMap, setupErr = loadAdl(in, &modules, jb)
-	_ = combinedAst
-	// _ = declMap
+	_ = declMap
 	if setupErr != nil {
 		os.Exit(1)
 	}
@@ -223,7 +222,6 @@ func (in *goadlcCmd) setup() (
 
 func (in *goadlcCmd) generate(
 	combinedAst map[string]adlast.Module,
-	declMap map[string]adlast.Decl,
 	importMap map[string]importSpec,
 	modulePath string,
 	midPath string,
@@ -269,11 +267,11 @@ func (in *goadlcCmd) generate(
 		}
 		// baseGen := in.newBaseGen(resolver, declMap, importMap, modulePath, midPath, m.name)
 		declBody := &generator{
-			baseGen: in.newBaseGen(resolver, declMap, importMap, modulePath, midPath, m.name),
+			baseGen: in.newBaseGen(resolver, importMap, modulePath, midPath, m.name),
 			rr:      templateRenderer{t: templates},
 		}
 		astBody := &generator{
-			baseGen: in.newBaseGen(resolver, declMap, importMap, modulePath, midPath, m.name),
+			baseGen: in.newBaseGen(resolver, importMap, modulePath, midPath, m.name),
 			rr:      templateRenderer{t: templates},
 		}
 		declsNames := []string{}
@@ -282,7 +280,6 @@ func (in *goadlcCmd) generate(
 		}
 		goslices.Sort(declsNames)
 		for _, k := range declsNames {
-
 			decl := m.module.Decls[k]
 			jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
 			gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
@@ -330,28 +327,23 @@ func (in *goadlcCmd) generate(
 
 func (in *goadlcCmd) newBaseGen(
 	resolver func(sn adlast.ScopedName) (*adlast.Decl, bool),
-	declMap map[string]adlast.Decl,
 	importMap map[string]importSpec,
 	modulePath, midPath string,
 	moduleName string,
-	//  name string,
-
 ) *baseGen {
 	imports := newImports(
 		in.reservedImports(),
 		importMap,
 	)
 	return &baseGen{
-		cli:      in,
-		resolver: resolver,
-		// declMap:    declMap,
+		cli:        in,
+		resolver:   resolver,
 		modulePath: modulePath,
 		midPath:    midPath,
 		moduleName: moduleName,
-		// name:       name,
-		imports:   imports,
-		goAdlPath: in.GoAdlPath,
-		stdLibGen: in.StdLibGen,
+		imports:    imports,
+		goAdlPath:  in.GoAdlPath,
+		stdLibGen:  in.StdLibGen,
 	}
 }
 
@@ -465,18 +457,6 @@ func (in *goadlcCmd) reservedImports() []importSpec {
 	}
 }
 
-func (bg *baseGen) Import(pkg string) (string, error) {
-	if bg.stdLibGen && pkg == "goadl" {
-		return "", nil
-	}
-	if spec, ok := bg.imports.byName(pkg); !ok {
-		return "", fmt.Errorf("unknown import %s", pkg)
-	} else {
-		bg.imports.addPath(spec.Path)
-		return spec.Name + ".", nil
-	}
-}
-
 type generator struct {
 	*baseGen
 	rr templateRenderer
@@ -558,65 +538,7 @@ func (base *baseGen) generalReg(
 		Name:       decl.Name,
 		Decl:       decl,
 		TypeParams: tp,
-		// this is needed to generate registration info for encoding of branches
-		// only needed for unions
-		Fields: adlast.Handle_DeclType[[]fieldParams](
-			decl.Type_.Branch,
-			func(struct_ adlast.Struct) []fieldParams {
-				return []fieldParams{}
-			},
-			func(u adlast.Union) []fieldParams {
-				return slices.Map[adlast.Field, fieldParams](u.Fields, func(f adlast.Field) fieldParams {
-					return makeFieldParam(f)
-				})
-			},
-			func(type_ adlast.TypeDef) []fieldParams {
-				return []fieldParams{}
-			},
-			func(newtype_ adlast.NewType) []fieldParams {
-				return []fieldParams{}
-			},
-			nil,
-		),
 	})
-}
-
-var goCustomTypeSN = adlast.ScopedName{
-	ModuleName: "adlc.config.go_",
-	Name:       "GoCustomType",
-}
-
-func (in *generator) GoRegisterHelper(moduleName string, decl adlast.Decl) (string, error) {
-	jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
-	gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
-	if err != nil {
-		return "", err
-	}
-	if gct == nil {
-		return "", nil
-	}
-	if in.cli.StdLibGen && gct.Helpers.Import_path == in.cli.GoAdlPath {
-		return fmt.Sprintf(`	RESOLVER.RegisterHelper(
-			adlast.ScopedName{ModuleName: "%s", Name: "%s"},
-			(*%s)(nil),
-		)
-`, moduleName, decl.Name, gct.Helpers.Name), nil
-	}
-	pkg := gct.Helpers.Import_path[strings.LastIndex(gct.Helpers.Import_path, "/")+1:]
-	spec := importSpec{
-		Path:    gct.Helpers.Import_path,
-		Name:    gct.Helpers.Pkg,
-		Aliased: gct.Helpers.Pkg != pkg,
-	}
-	in.imports.addSpec(spec)
-	if in.cli.Debug {
-		fmt.Fprintf(os.Stderr, "GoCustomType %v %v %v\n", gct, spec, pkg)
-	}
-	return fmt.Sprintf(`	RESOLVER.RegisterHelper(
-			adlast.ScopedName{ModuleName: "%s", Name: "%s"},
-			(*%s%s)(nil),
-		)
-`, moduleName, decl.Name, gct.Helpers.Pkg+".", gct.Helpers.Name), nil
 }
 
 func makeFieldParam(f adlast.Field) fieldParams {

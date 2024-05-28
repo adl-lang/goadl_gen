@@ -14,7 +14,7 @@ func (*{{$name}}{{.TypeParams.RSide}}) MakeNewBranch(key string) (any, error) {
 	{{range .Branches -}}{{$type := $G.GoType .TypeExpr}}case "{{.SerializedName}}":
 		return &{{$name}}_{{.Name | public}}{{$type.TypeParams.RSide}}{}, nil
 	{{end}}}
-	return nil, {{$G.Import "fmt"}}Errorf("unknown branch is : %s", key)
+	return nil, {{$G.GoImport "fmt"}}Errorf("unknown branch is : %s", key)
 }
 
 {{range .Branches -}}{{$type := $G.GoType .TypeExpr}}

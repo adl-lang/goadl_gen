@@ -79,7 +79,6 @@ type scopedDeclParams struct {
 	Name       string
 	TypeParams typeParam
 	Decl       adlast.Decl
-	Fields     []fieldParams
 }
 
 type texprParams scopedDeclParams

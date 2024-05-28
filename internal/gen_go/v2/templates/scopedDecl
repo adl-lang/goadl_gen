@@ -1,16 +1,16 @@
 {{$G := .G}}
 {{$name := .Name | .G.GoEscape | public}}
-func AST_{{$name}}() {{$G.Import "adlast"}}ScopedDecl {	
+func AST_{{$name}}() {{$G.GoImport "adlast"}}ScopedDecl {
 	decl := {{$G.GoDeclValue .Decl}}
-	return {{$G.Import "adlast"}}ScopedDecl{
+	return {{$G.GoImport "adlast"}}ScopedDecl{
 		ModuleName: "{{.ModuleName}}",
 		Decl: decl,
 	}
 }
 
 func init() {
-	{{$G.Import "goadl"}}RESOLVER.Register(
-		{{$G.Import "adlast"}}ScopedName{ModuleName: "{{.ModuleName}}", Name: "{{.Name}}"},
+	{{$G.GoImport "goadl"}}RESOLVER.Register(
+		{{$G.GoImport "adlast"}}ScopedName{ModuleName: "{{.ModuleName}}", Name: "{{.Name}}"},
 		AST_{{.Name}}(),
 	)
 }
