@@ -6,13 +6,26 @@ import adlc.config.go_.*;
 annotation Set GoCustomType {
   "gotype" : {
     "name": "MapSet",
-    "pkg": "goadl",
-    "import_path": "github.com/adl-lang/goadl_rt/v3"
+    "pkg": "customtypes",
+    "import_path": "github.com/adl-lang/goadl_rt/v3/customtypes"
   },
   "helpers" : {
     "name": "SetHelper",
-    "pkg": "goadl",
-    "import_path": "github.com/adl-lang/goadl_rt/v3"
+    "pkg": "customtypes",
+    "import_path": "github.com/adl-lang/goadl_rt/v3/customtypes"
+  }
+};
+
+annotation Map GoCustomType {
+  "gotype" : {
+    "name": "MapMap",
+    "pkg": "customtypes",
+    "import_path": "github.com/adl-lang/goadl_rt/v3/customtypes"
+  },
+  "helpers" : {
+    "name": "MapHelper",
+    "pkg": "customtypes",
+    "import_path": "github.com/adl-lang/goadl_rt/v3/customtypes"
   }
 };
 

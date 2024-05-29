@@ -83,15 +83,6 @@ type scopedDeclParams struct {
 
 type aTexprParams scopedDeclParams
 
-type customTypeDefValParams struct {
-	G          *generator
-	ModuleName string
-	Name       string
-	TypeParams typeParam
-	AnyValue   string
-	CustomType string
-}
-
 type headerParams struct {
 	Pkg string
 }

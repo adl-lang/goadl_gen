@@ -454,7 +454,8 @@ func (in *goadlcCmd) reservedImports() []importSpec {
 		{Path: "strings"},
 		{Path: "fmt"},
 		{Path: in.GoAdlPath, Aliased: true, Name: "goadl"},
-		{Path: in.GoAdlPath + "/sys/adlast", Aliased: true, Name: "adlast"},
+		{Path: in.GoAdlPath + "/sys/adlast", Aliased: false, Name: "adlast"},
+		{Path: in.GoAdlPath + "/adljson", Aliased: false, Name: "adljson"},
 	}
 }
 

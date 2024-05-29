@@ -65,10 +65,14 @@ func (bg *generator) GoDeclValue(val adlast.Decl) string {
 	}
 	// TODO make it so we GoValue can take both an any and a decl
 	// or make it so the encoder can encode to an any
-	return bg.GoValue(declTexpr.Value, m)
+	return bg.GoValue(val.Annotations, declTexpr.Value, m)
 }
 
-func (bg *generator) GoValue(te adlast.TypeExpr, val any) string {
+func (bg *generator) GoValue(
+	anns adlast.Annotations,
+	te adlast.TypeExpr,
+	val any,
+) string {
 	defer func() {
 		r := recover()
 		if r != nil {
@@ -76,17 +80,18 @@ func (bg *generator) GoValue(te adlast.TypeExpr, val any) string {
 			panic(r)
 		}
 	}()
-	return bg.goValue(te, val)
+	return bg.goValue(anns, te, val)
 }
 
 func (bg *generator) goValue(
+	anns adlast.Annotations,
 	te adlast.TypeExpr,
 	val any,
 ) string {
 	return adlast.Handle_TypeRef[string](
 		te.TypeRef.Branch,
 		func(primitive string) string {
-			return bg.goValuePrimitive(te, primitive, val)
+			return bg.goValuePrimitive(anns, te, primitive, val)
 		},
 		func(typeParam string) string {
 			panic("unbound typeParam " + typeParam)
@@ -97,12 +102,12 @@ func (bg *generator) goValue(
 			if !ok {
 				panic(fmt.Errorf("cannot resolve %v", ref))
 			}
-			if goadl.HasAnnotation(decl.Annotations, goCustomTypeSN) {
-				return bg.goCustomType(decl, gt, val)
-			}
 			tbind := goadl.CreateDecBoundTypeParams(goadl.TypeParamsFromDecl(*decl), te.Parameters)
-
-			txt := adlast.Handle_DeclType(
+			if goadl.HasAnnotation(decl.Annotations, goCustomTypeSN) {
+				monoTe := goadl.SubstituteTypeBindings(tbind, te)
+				return bg.goCustomType(decl, monoTe, gt, val)
+			}
+			return adlast.Handle_DeclType(
 				decl.Type_.Branch,
 				func(struct_ adlast.Struct) string {
 					return bg.goStruct(struct_, tbind, gt, val)
@@ -112,15 +117,14 @@ func (bg *generator) goValue(
 				},
 				func(type_ adlast.TypeDef) string {
 					monoTe := goadl.SubstituteTypeBindings(tbind, type_.TypeExpr)
-					return bg.goValue(monoTe, val)
+					return bg.goValue(decl.Annotations, monoTe, val)
 				},
 				func(newtype_ adlast.NewType) string {
 					monoTe := goadl.SubstituteTypeBindings(tbind, newtype_.TypeExpr)
-					return bg.goValue(monoTe, val)
+					return bg.goValue(decl.Annotations, monoTe, val)
 				},
 				nil,
 			)
-			return txt
 		},
 		nil,
 	)
@@ -128,6 +132,7 @@ func (bg *generator) goValue(
 
 func (bg *generator) goCustomType(
 	decl *adlast.Decl,
+	monoTe adlast.TypeExpr,
 	gt goTypeExpr,
 	val any,
 ) string {
@@ -136,50 +141,139 @@ func (bg *generator) goCustomType(
 	if err != nil {
 		panic(err)
 	}
-	pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
-	spec := importSpec{
-		Path:    gct.Gotype.Import_path,
-		Name:    gct.Gotype.Pkg,
-		Aliased: gct.Gotype.Pkg != pkg,
+	{
+		pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
+		spec := importSpec{
+			Path:    gct.Gotype.Import_path,
+			Name:    gct.Gotype.Pkg,
+			Aliased: gct.Gotype.Pkg != pkg,
+		}
+		bg.imports.addSpec(spec)
 	}
-	bg.imports.addSpec(spec)
-	bg.rr.Render(customTypeDefValParams{
-		G:          bg,
-		Name:       decl.Name,
-		ModuleName: bg.moduleName,
-		TypeParams: gt.TypeParams,
-		AnyValue:   fmt.Sprintf("%+#v", val),
-		CustomType: gct.Gotype.Pkg + "." + gct.Gotype.Name,
+
+	gen := &generator{
+		baseGen: bg.baseGen,
+		rr:      templateRenderer{t: templates},
+	}
+
+	typeExprStrs := slices.Map[adlast.TypeExpr, string](monoTe.Parameters, func(a adlast.TypeExpr) string {
+		return bg.strRep(a)
 	})
-	return ""
-	// return fmt.Sprintf("%s.%s%s{}", gct.Gotype.Pkg, gct.Gotype.Name, gt.TypeParams.RSide())
+
+	// rv := reflect.ValueOf(val)
+	// switch rv.Kind() {
+	// case reflect.Slice:
+
+	// }
+	// if reflect.ValueOf(val).IsZero() {
+	// 	return fmt.Sprintf("%s%s{}", gct.Gotype.Pkg+"."+gct.Gotype.Name, gt.TypeParams.RSide())
+	// }
+
+	{
+		pkg := gct.Helpers.Import_path[strings.LastIndex(gct.Helpers.Import_path, "/")+1:]
+		spec := importSpec{
+			Path:    gct.Helpers.Import_path,
+			Name:    gct.Helpers.Pkg,
+			Aliased: gct.Helpers.Pkg != pkg,
+		}
+		bg.imports.addSpec(spec)
+	}
+	gen.rr.Render(custTypeConstructionParams{
+		G:                gen,
+		Name:             decl.Name,
+		ModuleName:       bg.moduleName,
+		TypeParams:       gt.TypeParams,
+		AnyValue:         fmt.Sprintf("%+#v", val),
+		CustomType:       gct.Gotype.Pkg + "." + gct.Gotype.Name,
+		CustomTypeHelper: gct.Helpers.Pkg + "." + gct.Helpers.Name,
+		TypeExprStrs:     typeExprStrs,
+	})
+	return gen.rr.buf.String()
+
+	// return `adljson.Unwrap(((*customtypes.MapSet[string])(nil)).Construct(
+	// 	[]string{},
+	// 	[]interface{}{"a", "b", "z"},
+	// 	goadl.CreateUncheckedJsonDecodeBinding(
+	// 		adlast.TypeExpr{
+	// 			TypeRef: adlast.TypeRef{
+	// 				Branch: adlast.TypeRef_Primitive{V: "String"},
+	// 			},
+	// 			Parameters: []adlast.TypeExpr{},
+	// 		},
+	// 		goadl.RESOLVER,
+	// 	).Binder(),
+	// )).(customtypes.MapSet[string])`
+
+	// // bg.rr.Render(customTypeDefValParams{
+	// // 	G:          bg,
+	// // 	Name:       decl.Name,
+	// // 	ModuleName: bg.moduleName,
+	// // 	TypeParams: gt.TypeParams,
+	// // 	AnyValue:   fmt.Sprintf("%+#v", val),
+	// // 	CustomType: gct.Gotype.Pkg + "." + gct.Gotype.Name,
+	// // })
+	// return ""
+	// // return fmt.Sprintf("%s.%s%s{}", gct.Gotype.Pkg, gct.Gotype.Name, gt.TypeParams.RSide())
+}
+
+func (bg *generator) strRep(te adlast.TypeExpr) string {
+	br := adlast.Handle_TypeRef[string](
+		te.TypeRef.Branch,
+		func(primitive string) string {
+			return fmt.Sprintf(`adlast.TypeRef_Primitive{V: "%s"}`, primitive)
+		},
+		func(typeParam string) string {
+			panic("typeParm not valid in mono te")
+		},
+		func(reference adlast.ScopedName) string {
+			return fmt.Sprintf(`adlast.TypeRef_Reference{V: adlast.ScopedName{ModuleName: "%s",Name: "%s"}}`, reference.ModuleName, reference.Name)
+		},
+		nil,
+	)
+	bg.GoImport("adlast")
+	params := slices.Map[adlast.TypeExpr, string](te.Parameters, func(a adlast.TypeExpr) string {
+		return bg.strRep(a)
+	})
+	return fmt.Sprintf(`adlast.TypeExpr{TypeRef: adlast.TypeRef{Branch: %s},Parameters: []adlast.TypeExpr{%s}}`, br, strings.Join(params, ","))
+}
+
+type custTypeConstructionParams struct {
+	G                *generator
+	ModuleName       string
+	Name             string
+	TypeParams       typeParam
+	AnyValue         string
+	CustomType       string
+	CustomTypeHelper string
+	TypeExprStrs     []string
 }
 
 func (bg *generator) goStruct(
+	// anns adlast.Annotations,
 	struct_ adlast.Struct,
 	tbind []goadl.TypeBinding,
 	gt goTypeExpr,
 	val any,
 ) string {
 	m := val.(map[string]any)
-	ret := slices.FlatMap[adlast.Field, string](struct_.Fields, func(f adlast.Field) []string {
+	ret := slices.FlatMap[adlast.Field, string](struct_.Fields, func(fld adlast.Field) []string {
 		ret := []string{}
-		if v, ok := m[f.SerializedName]; ok {
-			monoTe := goadl.SubstituteTypeBindings(tbind, f.TypeExpr)
-			fgv := bg.goValue(monoTe, v)
-			ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
+		if v, ok := m[fld.SerializedName]; ok {
+			monoTe := goadl.SubstituteTypeBindings(tbind, fld.TypeExpr)
+			fgv := bg.goValue(fld.Annotations, monoTe, v)
+			ret = append(ret, fmt.Sprintf(`%s: %s`, public(fld.Name), fgv))
 		}
-		if _, ok := m[f.SerializedName]; !ok {
+		if _, ok := m[fld.SerializedName]; !ok {
 			types.Handle_Maybe[any, any](
-				f.Default.Branch,
+				fld.Default.Branch,
 				func(nothing struct{}) any {
 					return nil
 				},
 				func(just any) any {
 					val := reflect.ValueOf(just).Interface()
-					monoTe := goadl.SubstituteTypeBindings(tbind, f.TypeExpr)
-					fgv := bg.goValue(monoTe, val)
-					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
+					monoTe := goadl.SubstituteTypeBindings(tbind, fld.TypeExpr)
+					fgv := bg.goValue(fld.Annotations, monoTe, val)
+					ret = append(ret, fmt.Sprintf(`%s: %s`, public(fld.Name), fgv))
 					return nil
 				},
 				nil,
@@ -260,13 +354,14 @@ func (bg *generator) goUnion(
 			decl_name,
 			public(fld.Name),
 			f_tp.RSide(),
-			bg.goValue(monoTe, v),
+			bg.goValue(fld.Annotations, monoTe, v),
 		),
 	}
 	return fmt.Sprintf("%s{\nBranch: %s,\n}", gt.String(), strings.Join(ret, ",\n"))
 }
 
 func (bg *generator) goValuePrimitive(
+	anns adlast.Annotations,
 	te adlast.TypeExpr,
 	primitive string,
 	val any,
@@ -289,7 +384,7 @@ func (bg *generator) goValuePrimitive(
 		vs := make([]string, rv.Len())
 		for i := 0; i < rv.Len(); i++ {
 			v := rv.Index(i)
-			vs[i] = bg.goValue(te.Parameters[0], v.Interface())
+			vs[i] = bg.goValue(anns, te.Parameters[0], v.Interface())
 		}
 		if len(vs) == 0 {
 			return fmt.Sprintf("[]%s{}", bg.GoType(te.Parameters[0]))
@@ -300,7 +395,7 @@ func (bg *generator) goValuePrimitive(
 		m := val.(map[string]any)
 		vs := make(kvBy, 0, len(m))
 		for k, v := range m {
-			vs = append(vs, kv{k, bg.goValue(te.Parameters[0], v)})
+			vs = append(vs, kv{k, bg.goValue(anns, te.Parameters[0], v)})
 		}
 		if len(vs) == 0 {
 			return fmt.Sprintf("map[string]%s{}", bg.GoType(te.Parameters[0]))
@@ -311,7 +406,7 @@ func (bg *generator) goValuePrimitive(
 		if val == nil {
 			return "nil"
 		}
-		return "&" + bg.goValue(te.Parameters[0], val)
+		return "&" + bg.goValue(anns, te.Parameters[0], val)
 	}
 	panic("Unknown GoValuePrimitive")
 }
