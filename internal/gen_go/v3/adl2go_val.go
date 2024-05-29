@@ -63,6 +63,7 @@ func (bg *generator) GoDeclValue(val adlast.Decl) string {
 		fmt.Fprintf(os.Stderr, "!!!! decode error %v\n", err)
 		panic(err)
 	}
+	bg.genAdlAst = true
 	// TODO make it so we GoValue can take both an any and a decl
 	// or make it so the encoder can encode to an any
 	return bg.GoValue(val.Annotations, declTexpr.Value, m)
@@ -160,15 +161,6 @@ func (bg *generator) goCustomType(
 		return bg.strRep(a)
 	})
 
-	// rv := reflect.ValueOf(val)
-	// switch rv.Kind() {
-	// case reflect.Slice:
-
-	// }
-	// if reflect.ValueOf(val).IsZero() {
-	// 	return fmt.Sprintf("%s%s{}", gct.Gotype.Pkg+"."+gct.Gotype.Name, gt.TypeParams.RSide())
-	// }
-
 	{
 		pkg := gct.Helpers.Import_path[strings.LastIndex(gct.Helpers.Import_path, "/")+1:]
 		spec := importSpec{
@@ -189,31 +181,6 @@ func (bg *generator) goCustomType(
 		TypeExprStrs:     typeExprStrs,
 	})
 	return gen.rr.buf.String()
-
-	// return `adljson.Unwrap(((*customtypes.MapSet[string])(nil)).Construct(
-	// 	[]string{},
-	// 	[]interface{}{"a", "b", "z"},
-	// 	goadl.CreateUncheckedJsonDecodeBinding(
-	// 		adlast.TypeExpr{
-	// 			TypeRef: adlast.TypeRef{
-	// 				Branch: adlast.TypeRef_Primitive{V: "String"},
-	// 			},
-	// 			Parameters: []adlast.TypeExpr{},
-	// 		},
-	// 		goadl.RESOLVER,
-	// 	).Binder(),
-	// )).(customtypes.MapSet[string])`
-
-	// // bg.rr.Render(customTypeDefValParams{
-	// // 	G:          bg,
-	// // 	Name:       decl.Name,
-	// // 	ModuleName: bg.moduleName,
-	// // 	TypeParams: gt.TypeParams,
-	// // 	AnyValue:   fmt.Sprintf("%+#v", val),
-	// // 	CustomType: gct.Gotype.Pkg + "." + gct.Gotype.Name,
-	// // })
-	// return ""
-	// // return fmt.Sprintf("%s.%s%s{}", gct.Gotype.Pkg, gct.Gotype.Name, gt.TypeParams.RSide())
 }
 
 func (bg *generator) strRep(te adlast.TypeExpr) string {
@@ -249,7 +216,6 @@ type custTypeConstructionParams struct {
 }
 
 func (bg *generator) goStruct(
-	// anns adlast.Annotations,
 	struct_ adlast.Struct,
 	tbind []goadl.TypeBinding,
 	gt goTypeExpr,
@@ -258,6 +224,21 @@ func (bg *generator) goStruct(
 	m := val.(map[string]any)
 	ret := slices.FlatMap[adlast.Field, string](struct_.Fields, func(fld adlast.Field) []string {
 		ret := []string{}
+		if bg.genAdlAst && fld.Name == "annotations" {
+			bg.GoImport("customtypes")
+			anns := m[fld.SerializedName].([]any)
+			annvs := []string{}
+			for _, mapEntry := range anns {
+				ann := mapEntry.(map[string]any)
+				k := ann["k"].(map[string]any)
+				v := ann["v"]
+				mn := k["moduleName"]
+				na := k["name"]
+				annvs = append(annvs, fmt.Sprintf(`/**/adlast.ScopedName{ModuleName: "%s", Name: "%s"}: %+#v`, mn, na, v))
+			}
+			ret = append(ret, fmt.Sprintf(`%s: customtypes.MapMap[adlast.ScopedName, any]{%s}`, public(fld.Name), strings.Join(annvs, ",")))
+			return ret
+		}
 		if v, ok := m[fld.SerializedName]; ok {
 			monoTe := goadl.SubstituteTypeBindings(tbind, fld.TypeExpr)
 			fgv := bg.goValue(fld.Annotations, monoTe, v)

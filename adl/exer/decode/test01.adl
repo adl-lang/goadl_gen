@@ -93,8 +93,8 @@ struct NoDefault {
 
 newtype MyV<A> = Vector<A>;
 
-struct GenericF<A> {
-    A a;
+struct GenericF<AA> {
+    AA a;
 };
 
 };

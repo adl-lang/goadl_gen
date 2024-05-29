@@ -593,3 +593,43 @@ func TestNoDefault(t *testing.T) {
 		t.Error("Expecting an error, missing not default field")
 	}
 }
+
+func TestMapTest(t *testing.T) {
+	jb := goadl.CreateJsonDecodeBinding(test01.Texpr_MapTest(), goadl.RESOLVER)
+	sr := strings.NewReader(`{}`)
+	x := test01.MapTest{}
+	err := jb.Decode(sr, &x)
+	if err != nil {
+		t.Error(err)
+	}
+	x2 := test01.Make_MapTest()
+	if !reflect.DeepEqual(x, x2) {
+		t.Errorf("!=")
+	}
+	x3 := test01.New_MapTest(
+		customtypes.MapMap[string, int64]{"a": 1},
+	)
+	if !reflect.DeepEqual(x, x3) {
+		t.Errorf("!=")
+	}
+}
+
+func TestGenericF(t *testing.T) {
+	x := test01.New_GenericF[string]("hw")
+	ejb := goadl.CreateJsonEncodeBinding(test01.Texpr_GenericF(goadl.Texpr_String()), goadl.RESOLVER)
+	buf := bytes.Buffer{}
+	err := ejb.Encode(&buf, x)
+	if err != nil {
+		t.Error(err)
+	}
+	djb := goadl.CreateJsonDecodeBinding(test01.Texpr_GenericF(goadl.Texpr_String()), goadl.RESOLVER)
+	dst := test01.GenericF[string]{}
+	err = djb.Decode(&buf, &dst)
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(x, dst) {
+		t.Errorf("!=")
+	}
+
+}

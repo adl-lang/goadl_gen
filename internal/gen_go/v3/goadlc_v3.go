@@ -456,12 +456,14 @@ func (in *goadlcCmd) reservedImports() []importSpec {
 		{Path: in.GoAdlPath, Aliased: true, Name: "goadl"},
 		{Path: in.GoAdlPath + "/sys/adlast", Aliased: false, Name: "adlast"},
 		{Path: in.GoAdlPath + "/adljson", Aliased: false, Name: "adljson"},
+		{Path: in.GoAdlPath + "/customtypes", Aliased: false, Name: "customtypes"},
 	}
 }
 
 type generator struct {
 	*baseGen
-	rr templateRenderer
+	rr        templateRenderer
+	genAdlAst bool
 }
 
 func (base *baseGen) generalDeclV3(

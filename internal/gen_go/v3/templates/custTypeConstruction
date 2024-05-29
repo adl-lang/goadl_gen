@@ -4,7 +4,7 @@
 		{{.AnyValue}},
 		{{range .TypeExprStrs}}{{$G.GoImport "goadl"}}CreateUncheckedJsonDecodeBinding(
 			{{.}},
-			goadl.RESOLVER,
+			{{$G.GoImport "goadl"}}RESOLVER,
 		).Binder(),
 		{{end}}
 	)).({{.CustomType}}{{.TypeParams.RSide}})
