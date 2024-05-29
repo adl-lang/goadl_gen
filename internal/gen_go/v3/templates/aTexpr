@@ -1,0 +1,16 @@
+{{$G := .G}}
+func Texpr_{{.Name}}{{.TypeParams.LSide}}({{.TypeParams.TexprArgs}}) {{$G.GoImport "goadl"}}ATypeExpr[{{.Name}}{{.TypeParams.RSide}}] {
+	return {{$G.GoImport "goadl"}}ATypeExpr[{{.Name}}{{.TypeParams.RSide}}] {
+		Value: {{$G.GoImport "adlast"}}TypeExpr{
+			TypeRef: {{$G.GoImport "adlast"}}TypeRef{
+				Branch: {{$G.GoImport "adlast"}}TypeRef_Reference{
+					V: {{$G.GoImport "adlast"}}ScopedName{
+						ModuleName: "{{.ModuleName}}",
+						Name:       "{{.Name}}",
+					},
+				},
+			},
+			Parameters: []{{$G.GoImport "adlast"}}TypeExpr{ {{- .TypeParams.TexprValues -}} },
+		},
+	}
+}

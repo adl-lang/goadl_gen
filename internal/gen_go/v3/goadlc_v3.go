@@ -519,7 +519,7 @@ func (base *baseGen) generalTexpr(
 ) {
 	tp := typeParamsFromDecl(decl)
 	tp.stdlib = base.stdLibGen
-	body.rr.Render(texprParams{
+	body.rr.Render(aTexprParams{
 		G:          body,
 		ModuleName: base.moduleName,
 		Name:       decl.Name,

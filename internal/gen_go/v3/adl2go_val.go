@@ -65,21 +65,10 @@ func (bg *generator) GoDeclValue(val adlast.Decl) string {
 	}
 	// TODO make it so we GoValue can take both an any and a decl
 	// or make it so the encoder can encode to an any
-	return bg.GoValue(typeParam{}, declTexpr.Value, m)
+	return bg.GoValue(declTexpr.Value, m)
 }
 
-type ctxPath []string
-
-func (cp ctxPath) String() string {
-	return "[" + strings.Join(cp, ",") + "]"
-}
-
-type valContext struct {
-	path ctxPath
-}
-
-func (bg *baseGen) GoValue(decl_tp typeParam, te adlast.TypeExpr, val any) string {
-	ctx := valContext{path: []string{"$"}}
+func (bg *generator) GoValue(te adlast.TypeExpr, val any) string {
 	defer func() {
 		r := recover()
 		if r != nil {
@@ -87,54 +76,197 @@ func (bg *baseGen) GoValue(decl_tp typeParam, te adlast.TypeExpr, val any) strin
 			panic(r)
 		}
 	}()
-	return bg.goValue(ctx, decl_tp, te, val)
+	return bg.goValue(te, val)
 }
 
-func (bg *baseGen) goValue(ctx valContext, decl_tp typeParam, te adlast.TypeExpr, val any) string {
+func (bg *generator) goValue(
+	te adlast.TypeExpr,
+	val any,
+) string {
 	return adlast.Handle_TypeRef[string](
 		te.TypeRef.Branch,
 		func(primitive string) string {
-			ctx0 := valContext{append(ctx.path, primitive)}
-			return bg.goValuePrimitive(ctx0, decl_tp, te, primitive, val)
+			return bg.goValuePrimitive(te, primitive, val)
 		},
 		func(typeParam string) string {
 			panic("unbound typeParam " + typeParam)
 		},
 		func(ref adlast.ScopedName) string {
 			gt := bg.GoType(te)
-
-			ctx0 := valContext{append(ctx.path, ref.Name)}
 			decl, ok := bg.resolver(ref)
 			if !ok {
 				panic(fmt.Errorf("cannot resolve %v", ref))
 			}
-			tp := typeParamsFromDecl(*decl)
-
-			jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
-			gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
-			if err != nil {
-				panic(err)
+			if goadl.HasAnnotation(decl.Annotations, goCustomTypeSN) {
+				return bg.goCustomType(decl, gt, val)
 			}
-			if gct != nil {
-				pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
-				spec := importSpec{
-					Path:    gct.Gotype.Import_path,
-					Name:    gct.Gotype.Pkg,
-					Aliased: gct.Gotype.Pkg != pkg,
-				}
-				bg.imports.addSpec(spec)
-				return fmt.Sprintf("%s.%s%s{}", gct.Gotype.Pkg, gct.Gotype.Name, gt.TypeParams.RSide())
-			}
+			tbind := goadl.CreateDecBoundTypeParams(goadl.TypeParamsFromDecl(*decl), te.Parameters)
 
-			return bg.goValueScopedName(ctx0, tp, te, ref, val)
+			txt := adlast.Handle_DeclType(
+				decl.Type_.Branch,
+				func(struct_ adlast.Struct) string {
+					return bg.goStruct(struct_, tbind, gt, val)
+				},
+				func(union_ adlast.Union) string {
+					return bg.goUnion(union_, decl.Name, tbind, gt, val)
+				},
+				func(type_ adlast.TypeDef) string {
+					monoTe := goadl.SubstituteTypeBindings(tbind, type_.TypeExpr)
+					return bg.goValue(monoTe, val)
+				},
+				func(newtype_ adlast.NewType) string {
+					monoTe := goadl.SubstituteTypeBindings(tbind, newtype_.TypeExpr)
+					return bg.goValue(monoTe, val)
+				},
+				nil,
+			)
+			return txt
 		},
 		nil,
 	)
 }
 
-func (bg *baseGen) goValuePrimitive(
-	ctx valContext,
-	decl_tp typeParam,
+func (bg *generator) goCustomType(
+	decl *adlast.Decl,
+	gt goTypeExpr,
+	val any,
+) string {
+	jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
+	gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
+	if err != nil {
+		panic(err)
+	}
+	pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
+	spec := importSpec{
+		Path:    gct.Gotype.Import_path,
+		Name:    gct.Gotype.Pkg,
+		Aliased: gct.Gotype.Pkg != pkg,
+	}
+	bg.imports.addSpec(spec)
+	bg.rr.Render(customTypeDefValParams{
+		G:          bg,
+		Name:       decl.Name,
+		ModuleName: bg.moduleName,
+		TypeParams: gt.TypeParams,
+		AnyValue:   fmt.Sprintf("%+#v", val),
+		CustomType: gct.Gotype.Pkg + "." + gct.Gotype.Name,
+	})
+	return ""
+	// return fmt.Sprintf("%s.%s%s{}", gct.Gotype.Pkg, gct.Gotype.Name, gt.TypeParams.RSide())
+}
+
+func (bg *generator) goStruct(
+	struct_ adlast.Struct,
+	tbind []goadl.TypeBinding,
+	gt goTypeExpr,
+	val any,
+) string {
+	m := val.(map[string]any)
+	ret := slices.FlatMap[adlast.Field, string](struct_.Fields, func(f adlast.Field) []string {
+		ret := []string{}
+		if v, ok := m[f.SerializedName]; ok {
+			monoTe := goadl.SubstituteTypeBindings(tbind, f.TypeExpr)
+			fgv := bg.goValue(monoTe, v)
+			ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
+		}
+		if _, ok := m[f.SerializedName]; !ok {
+			types.Handle_Maybe[any, any](
+				f.Default.Branch,
+				func(nothing struct{}) any {
+					return nil
+				},
+				func(just any) any {
+					val := reflect.ValueOf(just).Interface()
+					monoTe := goadl.SubstituteTypeBindings(tbind, f.TypeExpr)
+					fgv := bg.goValue(monoTe, val)
+					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
+					return nil
+				},
+				nil,
+			)
+		}
+		return ret
+	})
+	return fmt.Sprintf("%s{\n%s,\n}", gt.String(), strings.Join(ret, ",\n"))
+}
+
+func (bg *generator) goUnion(
+	union_ adlast.Union,
+	decl_name string,
+	tbind []goadl.TypeBinding,
+	gt goTypeExpr,
+	val any,
+) string {
+	var (
+		k string
+		v any
+	)
+	switch t := val.(type) {
+	case string:
+		k = t
+		v = nil
+	case map[string]any:
+		if len(t) != 1 {
+			panic(fmt.Sprintf("expect an object with one and only element received %v - %v", len(t), t))
+		}
+		for k0, v0 := range t {
+			k = k0
+			v = v0
+		}
+	default:
+		panic(fmt.Errorf("union: expect an object received %v '%v'", reflect.TypeOf(val), val))
+	}
+	var fld *adlast.Field
+	for _, f0 := range union_.Fields {
+		if f0.SerializedName == k {
+			fld = &f0
+			break
+		}
+	}
+	if fld == nil {
+		panic(fmt.Errorf("unexpected branch - no type registered '%v'", k))
+	}
+	monoTe := goadl.SubstituteTypeBindings(tbind, fld.TypeExpr)
+	f_tp := typeParam{
+		ps: slices.Map[adlast.TypeExpr, string](monoTe.Parameters, func(a adlast.TypeExpr) string {
+			return bg.GoType(a).Type
+		}),
+	}
+
+	if f_tp0, ok := fld.TypeExpr.TypeRef.Branch.(adlast.TypeRef_TypeParam); ok {
+		ok := false
+		for _, x := range tbind {
+			if x.Name == f_tp0.V {
+				ok = true
+				monoGt := bg.GoType(x.Value)
+				f_tp = typeParam{
+					ps: []string{monoGt.Type},
+				}
+				break
+			}
+		}
+		if !ok {
+			panic(fmt.Errorf("type param not found"))
+		}
+	}
+
+	pkg := ""
+	if gt.Pkg != "" {
+		pkg = gt.Pkg + "."
+	}
+	ret := []string{
+		fmt.Sprintf("%s%s_%s%s{\nV: %v}",
+			pkg,
+			decl_name,
+			public(fld.Name),
+			f_tp.RSide(),
+			bg.goValue(monoTe, v),
+		),
+	}
+	return fmt.Sprintf("%s{\nBranch: %s,\n}", gt.String(), strings.Join(ret, ",\n"))
+}
+
+func (bg *generator) goValuePrimitive(
 	te adlast.TypeExpr,
 	primitive string,
 	val any,
@@ -157,8 +289,7 @@ func (bg *baseGen) goValuePrimitive(
 		vs := make([]string, rv.Len())
 		for i := 0; i < rv.Len(); i++ {
 			v := rv.Index(i)
-			ctx0 := valContext{append(ctx.path, fmt.Sprintf("[%d]", i))}
-			vs[i] = bg.goValue(ctx0, decl_tp, te.Parameters[0], v.Interface())
+			vs[i] = bg.goValue(te.Parameters[0], v.Interface())
 		}
 		if len(vs) == 0 {
 			return fmt.Sprintf("[]%s{}", bg.GoType(te.Parameters[0]))
@@ -169,8 +300,7 @@ func (bg *baseGen) goValuePrimitive(
 		m := val.(map[string]any)
 		vs := make(kvBy, 0, len(m))
 		for k, v := range m {
-			ctx0 := valContext{append(ctx.path, fmt.Sprintf("%s:", k))}
-			vs = append(vs, kv{k, bg.goValue(ctx0, decl_tp, te.Parameters[0], v)})
+			vs = append(vs, kv{k, bg.goValue(te.Parameters[0], v)})
 		}
 		if len(vs) == 0 {
 			return fmt.Sprintf("map[string]%s{}", bg.GoType(te.Parameters[0]))
@@ -181,161 +311,9 @@ func (bg *baseGen) goValuePrimitive(
 		if val == nil {
 			return "nil"
 		}
-		return "&" + bg.goValue(ctx, decl_tp, te.Parameters[0], val)
+		return "&" + bg.goValue(te.Parameters[0], val)
 	}
 	panic("Unknown GoValuePrimitive")
-}
-
-// func (bg *baseGen) goValuePrimitiveJson(
-// 	ctx valContext,
-// 	decl_tp typeParam,
-// 	te adlast.TypeExpr,
-// 	primitive string,
-// 	val any,
-// ) string {
-// 	switch t := val.(type) {
-// 	case []any:
-// 	case map[string]any:
-// 	}
-// }
-
-func (bg *baseGen) goValueScopedName(
-	ctx valContext,
-	decl_tp typeParam,
-	te adlast.TypeExpr,
-	ref adlast.ScopedName,
-	val any,
-) string {
-	gt := bg.GoType(te)
-
-	if len(decl_tp.ps) != len(te.Parameters) {
-		panic(fmt.Errorf("path : %s - len(decl typeparams) != len(gt.TypeParams.ps)\n%+v\n%+v",
-			ctx.path, decl_tp.ps, te.Parameters))
-	}
-	tbind := goadl.CreateDecBoundTypeParams(decl_tp.ps, te.Parameters)
-	decl, ok := bg.resolver(ref)
-	if !ok {
-		panic(fmt.Errorf("path %v - decl not in map : %v", ctx.path, ref))
-	}
-	return adlast.Handle_DeclType[string](
-		decl.Type_.Branch,
-		func(struct_ adlast.Struct) string {
-			m := val.(map[string]any)
-			ret := slices.FlatMap[adlast.Field, string](struct_.Fields, func(f adlast.Field) []string {
-				ret := []string{}
-				if v, ok := m[f.SerializedName]; ok {
-					monoTe := goadl.SubstituteTypeBindings(tbind, f.TypeExpr)
-					// monoTe := defunctionalizeTe(tpMap, f.TypeExpr)
-					ctx0 := valContext{append(ctx.path, f.Name)}
-					fgv := bg.goValue(ctx0, decl_tp, monoTe, v)
-					ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
-				}
-				// reflect.ValueOf(f.Default).F
-				// def, just := any(f.Default).(types.Maybe_Nothing)
-				// _, none := any(f.Default).(types.Maybe_Nothing)
-				if _, ok := m[f.SerializedName]; !ok {
-					types.Handle_Maybe[any, any](
-						f.Default.Branch,
-						func(nothing struct{}) any {
-							return nil
-						},
-						func(just any) any {
-							// fmt.Printf("???????2 %#+v\n", just)
-							val := reflect.ValueOf(just).Interface()
-							monoTe := goadl.SubstituteTypeBindings(tbind, f.TypeExpr)
-							ctx0 := valContext{append(ctx.path, f.Name)}
-							// fmt.Printf("~~~ %#+v\n", val)
-							fgv := bg.goValue(ctx0, decl_tp, monoTe, val)
-							ret = append(ret, fmt.Sprintf(`%s: %s`, public(f.Name), fgv))
-							return nil
-						},
-						nil,
-					)
-				}
-				return ret
-			})
-			return fmt.Sprintf("%s{\n%s,\n}", gt.String(), strings.Join(ret, ",\n"))
-		},
-		func(union_ adlast.Union) string {
-			var (
-				k string
-				v any
-			)
-			switch t := val.(type) {
-			case string:
-				k = t
-				v = nil
-			case map[string]any:
-				if len(t) != 1 {
-					panic(fmt.Sprintf("path %v - expect an object with one and only element received %v - %v", ctx.path, len(t), t))
-				}
-				for k0, v0 := range t {
-					k = k0
-					v = v0
-				}
-			default:
-				panic(fmt.Errorf("union: expect an object received %v '%v'", reflect.TypeOf(val), val))
-			}
-			var fld *adlast.Field
-			for _, f0 := range union_.Fields {
-				if f0.SerializedName == k {
-					fld = &f0
-					break
-				}
-			}
-			if fld == nil {
-				panic(fmt.Errorf("unexpected branch - no type registered '%v'", k))
-			}
-			monoTe := goadl.SubstituteTypeBindings(tbind, fld.TypeExpr)
-			f_tp := typeParam{
-				ps: slices.Map[adlast.TypeExpr, string](monoTe.Parameters, func(a adlast.TypeExpr) string {
-					return bg.GoType(a).Type
-				}),
-			}
-
-			if f_tp0, ok := fld.TypeExpr.TypeRef.Branch.(adlast.TypeRef_TypeParam); ok {
-				ok := false
-				for _, x := range tbind {
-					if x.Name == f_tp0.V {
-						ok = true
-						monoGt := bg.GoType(x.Value)
-						f_tp = typeParam{
-							ps: []string{monoGt.Type},
-						}
-						break
-					}
-				}
-				if !ok {
-					panic(fmt.Errorf("type param not found"))
-				}
-			}
-			ctx0 := valContext{append(ctx.path, fld.Name)}
-			pkg := ""
-			if gt.Pkg != "" {
-				pkg = gt.Pkg + "."
-			}
-			ret := []string{
-				fmt.Sprintf("%s%s_%s%s{\nV: %v}",
-					pkg,
-					decl.Name,
-					public(fld.Name),
-					f_tp.RSide(),
-					bg.goValue(ctx0, decl_tp, monoTe, v),
-				),
-			}
-			return fmt.Sprintf("%s{\nBranch: %s,\n}", gt.String(), strings.Join(ret, ",\n"))
-
-		},
-		func(type_ adlast.TypeDef) string {
-			monoTe := goadl.SubstituteTypeBindings(tbind, type_.TypeExpr)
-			return bg.goValue(ctx, typeParam{ps: type_.TypeParams}, monoTe, val)
-		},
-		func(newtype_ adlast.NewType) string {
-			monoTe := goadl.SubstituteTypeBindings(tbind, newtype_.TypeExpr)
-			return fmt.Sprintf("%s(%s)", gt.String(), bg.goValue(ctx, typeParam{ps: newtype_.TypeParams}, monoTe, val))
-		},
-		nil,
-	)
 }
 
 type kv struct {

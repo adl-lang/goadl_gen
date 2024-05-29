@@ -16,17 +16,4 @@ annotation Set GoCustomType {
   }
 };
 
-annotation Map GoCustomType {
-  "gotype" : {
-    "name": "MapMap",
-    "pkg": "customtypes",
-    "import_path": "github.com/adl-lang/goadl_rt/v3/customtypes"
-  },
-  "helpers" : {
-    "name": "MapHelper",
-    "pkg": "goadl",
-    "import_path": "github.com/adl-lang/goadl_rt/v3"
-  }
-};
-
 };

@@ -76,7 +76,11 @@ struct Json {
 };
 
 struct SetTest {
-    sys.types.Set<String> my_set;
+    sys.types.Set<String> my_set = ["a","b","z"];
+};
+
+struct MapTest {
+    sys.types.Map<String,Int64> my_set = [{"k":"a","v":1}];
 };
 
 struct HasDefault {

@@ -81,7 +81,16 @@ type scopedDeclParams struct {
 	Decl       adlast.Decl
 }
 
-type texprParams scopedDeclParams
+type aTexprParams scopedDeclParams
+
+type customTypeDefValParams struct {
+	G          *generator
+	ModuleName string
+	Name       string
+	TypeParams typeParam
+	AnyValue   string
+	CustomType string
+}
 
 type headerParams struct {
 	Pkg string

@@ -11,6 +11,7 @@ import (
 	"adl_testing/decode/test01"
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
+	"github.com/adl-lang/goadl_rt/v3/customtypes"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
 )
 
@@ -527,7 +528,7 @@ func TestEncDec(t *testing.T) {
 
 func TestSetTest(t *testing.T) {
 	st := test01.New_SetTest(
-		goadl.MapSet[string]{
+		customtypes.MapSet[string]{
 			"a": {},
 			"b": {},
 			"c": {},
@@ -556,6 +557,19 @@ func TestSetTest(t *testing.T) {
 	// fmt.Printf("%+#v\n", st2)
 }
 
+func TestSetTestDef(t *testing.T) {
+	st := test01.SetTest{}
+	dec := goadl.CreateJsonDecodeBinding(test01.Texpr_SetTest(), goadl.RESOLVER)
+	sr := strings.NewReader(`{}`)
+	err := dec.Decode(sr, &st)
+	if err != nil {
+		t.Error(err)
+	}
+	st2 := test01.Make_SetTest()
+	if !reflect.DeepEqual(st, st2) {
+		t.Errorf("!=\n%#v\n%#v\n", st, st2)
+	}
+}
 func TestHasDefault(t *testing.T) {
 	jb := goadl.CreateJsonDecodeBinding(test01.Texpr_HasDefault(), goadl.RESOLVER)
 	sr := strings.NewReader(`{}`)

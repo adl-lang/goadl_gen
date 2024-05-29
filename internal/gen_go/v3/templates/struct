@@ -27,6 +27,6 @@ func Make_{{$name}}{{.TypeParams.LSide}}(
 }
 
 {{range .Fields}}{{$type := $G.GoType .TypeExpr}}{{if .HasDefault}}func (*{{$decl.Name}}{{$decl.TypeParams.RSide}}) Default_{{.Name | $G.GoEscape}}() {{$type}} {
-	return {{$G.GoValue $decl.TypeParams .TypeExpr .Just}}
+	return {{$G.GoValue .TypeExpr .Just}}
 }
 {{end}}{{end}}
