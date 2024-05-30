@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/adl-lang/goadlc/internal/gen_go"
-	gen_go_v2 "github.com/adl-lang/goadlc/internal/gen_go/v2"
 	gen_go_v3 "github.com/adl-lang/goadlc/internal/gen_go/v3"
 	"github.com/adl-lang/goadlc/internal/root"
 	"github.com/jpillora/opts"
@@ -17,15 +15,13 @@ func main() {
 		Name("goadlc").
 		EmbedGlobalFlagSet().
 		AddCommand(opts.New(&struct{}{}).Name("go").
-			AddCommand(gen_go.NewGenGo().Name("v1")).
-			AddCommand(opts.New(gen_go_v2.NewGenGoV2(rflg)).Name("v2")).
 			AddCommand(opts.New(gen_go_v3.NewGenGoV3(rflg)).Name("v3")).
 			AddCommand(gen_go_v3.NewGenTypeExprV3().Name("v3_gen_texpr"))).
 		Complete().
 		AddCommand(opts.New(&versionCmd{}).Name("version")).
 		Parse()
 	if !op.IsRunnable() {
-		fmt.Fprintf(os.Stderr, "%s", op.Help())
+		fmt.Fprintf(os.Stderr, "%s", op.Selected().Help())
 		os.Exit(1)
 	}
 	err := op.Run()

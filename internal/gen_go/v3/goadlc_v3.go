@@ -15,17 +15,16 @@ import (
 	"github.com/adl-lang/goadl_rt/v3/sys/types"
 	"github.com/adl-lang/goadlc/internal/fn/slices"
 	"github.com/adl-lang/goadlc/internal/root"
-	"github.com/golang/glog"
 )
 
 func NewGenGoV3(rt *root.RootObj) any {
 	wk, err := os.MkdirTemp("", "goadlc-")
 	if err != nil {
-		glog.Warningf(`os.MkdirTemp("", "goadlc-") %v`, err)
+		fmt.Fprintf(os.Stderr, `WARNING: os.MkdirTemp("", "goadlc-") %v\n`, err)
 	}
 	cwd, err := os.Getwd()
 	if err != nil {
-		glog.Warningf(`error getting current working directory %v`, err)
+		fmt.Fprintf(os.Stderr, `WARNING: error getting current working directory %v\n`, err)
 	}
 	return &goadlcCmd{
 		rt:          rt,

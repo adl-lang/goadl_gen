@@ -1,7 +1,0 @@
-module exer05.ast {
-
-  struct X {
-      StringMap<sys.adlast.Module> ast;
-  };
-
-};

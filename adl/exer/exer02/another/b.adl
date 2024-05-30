@@ -1,7 +1,0 @@
-module exer02.another.b {
-
-struct B {
-    String a;
-};
-
-};
