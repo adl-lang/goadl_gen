@@ -181,6 +181,10 @@ func (in *goadlcCmd) setup() (
 		}
 		in.files = append(in.files, matchs...)
 	}
+	if len(in.files) == 0 {
+		setupErr = fmt.Errorf("no files found")
+		return
+	}
 	if in.Debug {
 		fmt.Fprintf(os.Stderr, "found files:\n")
 		for _, f := range in.files {
