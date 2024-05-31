@@ -39,7 +39,8 @@ func NewGenGoV3(rt *root.RootObj) any {
 
 type goadlcCmd struct {
 	rt          *root.RootObj
-	WorkingDir  string
+	WorkingDir  string      `help:"The temp directory used to place intermediate files."`
+	ChangePWD   string      `help:"The directory to change to after root read cfg but before running (used in dev)"`
 	Searchdir   []string    `opts:"short=I" help:"Add the specifed directory to the ADL searchpath"`
 	Outputdir   string      `opts:"short=O" help:"Set the directory where generated code is written "`
 	MergeAdlext string      `help:"Add the specifed adl file extension to merged on loading"`
@@ -150,6 +151,13 @@ func (in *goadlcCmd) setup() (
 ) {
 	in.rt.Config(in)
 
+	if in.ChangePWD != "" {
+		err := os.Chdir(in.ChangePWD)
+		if err != nil {
+			setupErr = err
+			return
+		}
+	}
 	importMap = map[string]importSpec{}
 	for _, im := range in.ModuleMap {
 		if _, ok := importMap[im.ModuleName]; ok {
