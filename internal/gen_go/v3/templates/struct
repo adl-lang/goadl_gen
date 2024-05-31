@@ -6,7 +6,7 @@ type {{$name}}{{$decl.TypeParams.LSide}} struct {
 {{end -}}
 }
 
-func New_{{$name}}{{.TypeParams.LSide}}(
+func MakeAll_{{$name}}{{.TypeParams.LSide}}(
 {{range .Fields}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},
 {{end -}}
 ) {{$name}}{{.TypeParams.RSide}} {
