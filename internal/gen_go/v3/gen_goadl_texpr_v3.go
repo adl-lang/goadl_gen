@@ -18,27 +18,25 @@ type texprV2Cmd struct {
 var (
 	tmpl = `
 func Texpr_{{.ADL}}() ATypeExpr[{{.Go}}] {
+	te := Make_TypeExpr(
+		Make_TypeRef_primitive("{{.ADL}}"),
+		[]TypeExpr{},
+	)
 	return ATypeExpr[{{.Go}}]{
-		Value: TypeExpr{
-			TypeRef: TypeRef{
-				Branch: TypeRef_Primitive{V: "{{.ADL}}"},
-			},
-			Parameters: []TypeExpr{},
-		},
+		Value: te,
 	}
 }
 `
 	paramTmpl = `
 func Texpr_{{.ADL}}[T any](te ATypeExpr[T]) ATypeExpr[{{.Go}}T] {
-	return ATypeExpr[{{.Go}}T]{
-		Value: TypeExpr{
-			TypeRef: TypeRef{
-				Branch: TypeRef_Primitive{V: "{{.ADL}}"},
-			},
-			Parameters: []TypeExpr{
-				te.Value,
-			},
+	te0 := Make_TypeExpr(
+		Make_TypeRef_primitive("{{.ADL}}"),
+		[]TypeExpr{
+			te.Value,
 		},
+	)
+	return ATypeExpr[{{.Go}}T]{
+		Value: te0,
 	}
 }
 `
