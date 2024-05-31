@@ -47,7 +47,7 @@ func (in *baseGen) GoType(
 	typeExpr adlast.TypeExpr,
 ) goTypeExpr {
 	_type := adlast.Handle_TypeRef(
-		typeExpr.TypeRef.Branch,
+		typeExpr.TypeRef,
 		func(primitive string) goTypeExpr {
 			_type := in.PrimitiveMap(primitive, typeExpr.Parameters)
 			return _type

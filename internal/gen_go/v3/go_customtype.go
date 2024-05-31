@@ -2,7 +2,6 @@ package gen_go
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
@@ -37,9 +36,6 @@ func (in *generator) GoRegisterHelper(moduleName string, decl adlast.Decl) (stri
 		Aliased: gct.Helpers.Pkg != pkg,
 	}
 	in.imports.addSpec(spec)
-	if in.cli.Debug {
-		fmt.Fprintf(os.Stderr, "GoCustomType %v %v %v\n", gct, spec, pkg)
-	}
 	return fmt.Sprintf(`	RESOLVER.RegisterHelper(
 			adlast.ScopedName{ModuleName: "%s", Name: "%s"},
 			(*%s%s)(nil),

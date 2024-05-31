@@ -12,7 +12,7 @@ import (
 
 func typeParamsFromDecl(decl adlast.Decl) typeParam {
 	return adlast.Handle_DeclType[typeParam](
-		decl.Type_.Branch,
+		decl.Type_,
 		func(struct_ adlast.Struct) typeParam {
 			return typeParam{
 				ps:    struct_.TypeParams,

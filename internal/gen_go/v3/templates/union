@@ -34,14 +34,21 @@ func Make_{{$name}}_{{.Name}}{{$decl.TypeParams.LSide}}(v {{$Type}}) {{$name}}{{
 }
 {{end}}
 
+{{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
+func (un {{$name}}{{$decl.TypeParams.RSide}})Cast_{{.Name}}() ({{$Type}}, bool) {
+	br, ok := un.Branch.({{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}})
+	return br.V, ok
+}
+{{end}}
+
 {{$htp := .TypeParams.AddParam "T"}}
 
 func Handle_{{$name}}{{$htp.LSide}}(
-	_in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}{{$Type := $G.GoType .TypeExpr}}
+	_in {{$name}}{{.TypeParams.RSide}},{{range .Branches}}{{$Type := $G.GoType .TypeExpr}}
 	{{.Name}} func({{.Name}} {{$Type}}) ({{$htp.Last}}),{{end}}
 	_default func() {{$htp.Last}},
 ) ({{$htp.Last}}) {
-	switch _b := _in.(type) {
+	switch _b := _in.Branch.(type) {
 	{{range .Branches -}}{{- $Type := $G.GoType .TypeExpr -}}
 	case {{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
 		if {{.Name}} != nil {
@@ -55,11 +62,11 @@ func Handle_{{$name}}{{$htp.LSide}}(
 }
 
 func HandleWithErr_{{$name}}{{$htp.LSide}}(
-	_in {{$name}}Branch{{.TypeParams.RSide}},{{range .Branches}}{{$Type := $G.GoType .TypeExpr}}
+	_in {{$name}}{{.TypeParams.RSide}},{{range .Branches}}{{$Type := $G.GoType .TypeExpr}}
 	{{.Name}} func({{.Name}} {{$Type}}) ({{$htp.Last}}, error),{{end}}
 	_default func() ({{$htp.Last}}, error),
 ) ({{$htp.Last}}, error) {
-	switch _b := _in.(type) {
+	switch _b := _in.Branch.(type) {
 	{{range .Branches -}}{{$Type := $G.GoType .TypeExpr -}}
 	case {{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
 		if {{.Name}} != nil {

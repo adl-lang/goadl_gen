@@ -474,7 +474,7 @@ func (base *baseGen) generalDeclV3(
 	decl adlast.Decl,
 ) {
 	adlast.Handle_DeclType[any](
-		decl.Type_.Branch,
+		decl.Type_,
 		func(s adlast.Struct) any {
 			in.rr.Render(structParams{
 				G:          in,
@@ -550,7 +550,7 @@ func (base *baseGen) generalReg(
 
 func makeFieldParam(f adlast.Field) fieldParams {
 	return types.Handle_Maybe[any, fieldParams](
-		f.Default.Branch,
+		f.Default,
 		func(nothing struct{}) fieldParams {
 			return fieldParams{
 				Field:      f,
@@ -572,39 +572,4 @@ func makeFieldParam(f adlast.Field) fieldParams {
 
 func (in *generator) ToTitle(s string) string {
 	return strings.ToTitle(s)
-}
-
-func jsonPrimitiveDefaultToGo(primitive string, defVal interface{}) string {
-	switch defVal.(type) {
-	case string:
-		return fmt.Sprintf(`%q`, defVal)
-	}
-	return fmt.Sprintf(`%v`, defVal)
-}
-
-func defunctionalizeTe(m map[string]adlast.TypeExpr, te adlast.TypeExpr) adlast.TypeExpr {
-
-	p0 := slices.Map[adlast.TypeExpr, adlast.TypeExpr](te.Parameters, func(a adlast.TypeExpr) adlast.TypeExpr {
-		return defunctionalizeTe(m, a)
-	})
-
-	if tp, ok := te.TypeRef.Branch.(adlast.TypeRef_TypeParam); ok {
-		if te0, ok := m[tp.V]; !ok {
-			panic(fmt.Errorf("type param not found"))
-			// return adlast.TypeExpr{
-			// 	TypeRef:    te.TypeRef,
-			// 	Parameters: p0,
-			// }
-		} else {
-			if len(te.Parameters) != 0 {
-				panic(fmt.Errorf("type param cannot have type params, not a concrete type"))
-			}
-			return te0
-		}
-	}
-
-	return adlast.TypeExpr{
-		TypeRef:    te.TypeRef,
-		Parameters: p0,
-	}
 }

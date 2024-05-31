@@ -108,10 +108,6 @@ type unionParams struct {
 
 type fieldParams struct {
 	adlast.Field
-	// Name           string
-	// SerializedName string
-	// Type           goTypeExpr
-	// TypeParams typeParam
 	HasDefault bool
 	Just       any
 }

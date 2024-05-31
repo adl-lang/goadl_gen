@@ -90,7 +90,7 @@ func (bg *generator) goValue(
 	val any,
 ) string {
 	return adlast.Handle_TypeRef[string](
-		te.TypeRef.Branch,
+		te.TypeRef,
 		func(primitive string) string {
 			return bg.goValuePrimitive(anns, te, primitive, val)
 		},
@@ -109,7 +109,7 @@ func (bg *generator) goValue(
 				return bg.goCustomType(decl, monoTe, gt, val)
 			}
 			return adlast.Handle_DeclType(
-				decl.Type_.Branch,
+				decl.Type_,
 				func(struct_ adlast.Struct) string {
 					return bg.goStruct(struct_, tbind, gt, val)
 				},
@@ -185,7 +185,7 @@ func (bg *generator) goCustomType(
 
 func (bg *generator) strRep(te adlast.TypeExpr) string {
 	br := adlast.Handle_TypeRef[string](
-		te.TypeRef.Branch,
+		te.TypeRef,
 		func(primitive string) string {
 			return fmt.Sprintf(`adlast.TypeRef_Primitive{V: "%s"}`, primitive)
 		},
@@ -246,7 +246,7 @@ func (bg *generator) goStruct(
 		}
 		if _, ok := m[fld.SerializedName]; !ok {
 			types.Handle_Maybe[any, any](
-				fld.Default.Branch,
+				fld.Default,
 				func(nothing struct{}) any {
 					return nil
 				},
@@ -308,10 +308,12 @@ func (bg *generator) goUnion(
 		}),
 	}
 
-	if f_tp0, ok := fld.TypeExpr.TypeRef.Branch.(adlast.TypeRef_TypeParam); ok {
+	if f_tp0, ok := fld.TypeExpr.TypeRef.Cast_typeParam(); ok {
+		// if f_tp0, ok := fld.TypeExpr.TypeRef.Branch.(adlast.TypeRef_TypeParam); ok {
+		// 	f_tp0 := f_tp0.V
 		ok := false
 		for _, x := range tbind {
-			if x.Name == f_tp0.V {
+			if x.Name == f_tp0 {
 				ok = true
 				monoGt := bg.GoType(x.Value)
 				f_tp = typeParam{
