@@ -7,22 +7,31 @@ type {{$name}}{{$decl.TypeParams.LSide}} struct {
 }
 
 func MakeAll_{{$name}}{{.TypeParams.LSide}}(
-{{range .Fields}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},
+{{range .Fields}}{{if not .IsVoid}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},{{end}}
 {{end -}}
 ) {{$name}}{{.TypeParams.RSide}} {
 	return {{$name}}{{.TypeParams.RSide}}{
-{{range .Fields}}{{$type := $G.GoType .TypeExpr}}		{{.Name | public}}: {{.Name | lower | goEscape}},
+{{range .Fields}}
+{{- if .IsVoid -}}
+{{$type := $G.GoType .TypeExpr}}		{{.Name | public}}: struct{}{},
+{{- else -}}
+{{$type := $G.GoType .TypeExpr}}		{{.Name | public}}: {{.Name | lower | goEscape}},
+{{- end}}
 {{end}}	}
 }
 
 func Make_{{$name}}{{.TypeParams.LSide}}(
-{{range .Fields}}{{if not .HasDefault}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},
-{{end}}{{end -}}
+{{range .Fields}}{{if not .IsVoid}}{{if not .HasDefault}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},
+{{end}}{{end}}{{end -}}
 ) {{$name}}{{.TypeParams.RSide}} {
 	ret := {{$name}}{{.TypeParams.RSide}}{
-{{range .Fields}}{{$type := $G.GoType .TypeExpr}}{{if not .HasDefault}}		{{.Name | public}}: {{.Name | lower | goEscape}},
+{{range .Fields}}{{$type := $G.GoType .TypeExpr}} {{if not .IsVoid}} {{if not .HasDefault}}		{{.Name | public}}: {{.Name | lower | goEscape}},
 {{else}}		{{.Name | public}}: ((*{{$name}}{{$decl.TypeParams.RSide}})(nil)).Default_{{.Name}}(),
-{{end}}{{- end}}	}
+{{end}}
+{{- else -}}
+		{{.Name | public}}: struct{}{},
+{{end}}
+{{- end}}	}
 	return ret
 }
 
