@@ -3,7 +3,7 @@ module github.com/adl-lang/goadlc
 go 1.22.1
 
 require (
-	github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.1
+	github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.3
 	github.com/jpillora/opts v1.2.3
 	golang.org/x/mod v0.17.0
 )
