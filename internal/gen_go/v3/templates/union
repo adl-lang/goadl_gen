@@ -12,31 +12,31 @@ type {{$name}}Branch{{$decl.TypeParams.LSide}} interface {
 func (*{{$name}}{{.TypeParams.RSide}}) MakeNewBranch(key string) (any, error) {
 	switch key {
 	{{range .Branches -}}{{$type := $G.GoType .TypeExpr}}case "{{.SerializedName}}":
-		return &{{$name}}_{{.Name | public}}{{$type.TypeParams.RSide}}{}, nil
+		return &_{{$name}}_{{.Name | public}}{{$type.TypeParams.RSide}}{}, nil
 	{{end}}}
 	return nil, {{$G.GoImport "fmt"}}Errorf("unknown branch is : %s", key)
 }
 
 {{range .Branches -}}{{$type := $G.GoType .TypeExpr}}
-type {{$name}}_{{.Name | public}}{{$type.TypeParams.LSide}} struct {
+type _{{$name}}_{{.Name | public}}{{$type.TypeParams.LSide}} struct {
 	V {{$type}} `branch:"{{.Name}}"`
 }{{end}}
 
 {{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
-func ({{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}) is{{$name}}Branch() {}
+func (_{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}) is{{$name}}Branch() {}
 {{- end}}
 
 {{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
 func Make_{{$name}}_{{.Name}}{{$decl.TypeParams.LSide}}(v {{$Type}}) {{$name}}{{$decl.TypeParams.RSide}} {
 	return {{$name}}{{$decl.TypeParams.RSide}}{
-		{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}{v},
+		_{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}{v},
 	}
 }
 {{end}}
 
 {{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
 func (un {{$name}}{{$decl.TypeParams.RSide}})Cast_{{.Name}}() ({{$Type}}, bool) {
-	br, ok := un.Branch.({{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}})
+	br, ok := un.Branch.(_{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}})
 	return br.V, ok
 }
 {{end}}
@@ -50,7 +50,7 @@ func Handle_{{$name}}{{$htp.LSide}}(
 ) ({{$htp.Last}}) {
 	switch _b := _in.Branch.(type) {
 	{{range .Branches -}}{{- $Type := $G.GoType .TypeExpr -}}
-	case {{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
+	case _{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
 		if {{.Name}} != nil {
 			return {{.Name}}(_b.V)
 		}
@@ -68,7 +68,7 @@ func HandleWithErr_{{$name}}{{$htp.LSide}}(
 ) ({{$htp.Last}}, error) {
 	switch _b := _in.Branch.(type) {
 	{{range .Branches -}}{{$Type := $G.GoType .TypeExpr -}}
-	case {{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
+	case _{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
 		if {{.Name}} != nil {
 			return {{.Name}}(_b.V)
 		}

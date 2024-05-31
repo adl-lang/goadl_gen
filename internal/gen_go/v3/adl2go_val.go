@@ -173,13 +173,13 @@ func (bg *generator) strRep(te adlast.TypeExpr) string {
 	br := adlast.Handle_TypeRef[string](
 		te.TypeRef,
 		func(primitive string) string {
-			return fmt.Sprintf(`adlast.TypeRef_Primitive{V: "%s"}`, primitive)
+			return fmt.Sprintf(`adlast.Make_TypeRef_primitive("%s")`, primitive)
 		},
 		func(typeParam string) string {
 			panic("typeParm not valid in mono te")
 		},
 		func(reference adlast.ScopedName) string {
-			return fmt.Sprintf(`adlast.TypeRef_Reference{V: adlast.ScopedName{ModuleName: "%s",Name: "%s"}}`, reference.ModuleName, reference.Name)
+			return fmt.Sprintf(`adlast.Make_TypeRef_reference(adlast.Make_ScopedName("%s", "%s"))`, reference.ModuleName, reference.Name)
 		},
 		nil,
 	)
@@ -187,7 +187,7 @@ func (bg *generator) strRep(te adlast.TypeExpr) string {
 	params := slices.Map[adlast.TypeExpr, string](te.Parameters, func(a adlast.TypeExpr) string {
 		return bg.strRep(a)
 	})
-	return fmt.Sprintf(`adlast.TypeExpr{TypeRef: adlast.TypeRef{Branch: %s},Parameters: []adlast.TypeExpr{%s}}`, br, strings.Join(params, ","))
+	return fmt.Sprintf(`adlast.Make_TypeExpr(%s , []adlast.TypeExpr{%s})`, br, strings.Join(params, ","))
 }
 
 type custTypeConstructionParams struct {
