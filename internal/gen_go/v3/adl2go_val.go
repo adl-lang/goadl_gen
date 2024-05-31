@@ -325,6 +325,15 @@ func (bg *generator) goUnion(
 		pkg = gt.Pkg + "."
 	}
 
+	isVoid := false
+	if pr, ok := fld.TypeExpr.TypeRef.Cast_primitive(); ok {
+		if pr == "Void" {
+			isVoid = true
+		}
+	}
+	if isVoid {
+		return fmt.Sprintf("%sMake_%s_%s%s()", pkg, gt.Type, fld.Name, gt.TypeParams.RSide())
+	}
 	return fmt.Sprintf("%sMake_%s_%s%s(\n%s,\n)", pkg, gt.Type, fld.Name, gt.TypeParams.RSide(), bg.goValue(fld.Annotations, monoTe, v))
 
 	// ret := []string{

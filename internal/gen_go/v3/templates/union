@@ -27,11 +27,19 @@ func (_{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}) is{{$name}}Branch
 {{- end}}
 
 {{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
+{{if .IsVoid -}}
+func Make_{{$name}}_{{.Name}}{{$decl.TypeParams.LSide}}() {{$name}}{{$decl.TypeParams.RSide}} {
+	return {{$name}}{{$decl.TypeParams.RSide}}{
+		_{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}{struct{}{}},
+	}
+}
+{{- else -}}
 func Make_{{$name}}_{{.Name}}{{$decl.TypeParams.LSide}}(v {{$Type}}) {{$name}}{{$decl.TypeParams.RSide}} {
 	return {{$name}}{{$decl.TypeParams.RSide}}{
 		_{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}{v},
 	}
 }
+{{- end}}
 {{end}}
 
 {{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}

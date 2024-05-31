@@ -110,6 +110,7 @@ type fieldParams struct {
 	adlast.Field
 	HasDefault bool
 	Just       any
+	IsVoid     bool
 }
 
 type typeAliasParams struct {

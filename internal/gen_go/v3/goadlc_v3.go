@@ -557,12 +557,19 @@ func (base *baseGen) generalReg(
 }
 
 func makeFieldParam(f adlast.Field) fieldParams {
+	isVoid := false
+	if pr, ok := f.TypeExpr.TypeRef.Cast_primitive(); ok {
+		if pr == "Void" {
+			isVoid = true
+		}
+	}
 	return types.Handle_Maybe[any, fieldParams](
 		f.Default,
 		func(nothing struct{}) fieldParams {
 			return fieldParams{
 				Field:      f,
 				HasDefault: false,
+				IsVoid:     isVoid,
 			}
 		},
 		func(just any) fieldParams {
@@ -572,6 +579,7 @@ func makeFieldParam(f adlast.Field) fieldParams {
 				Field:      f,
 				HasDefault: true,
 				Just:       just,
+				IsVoid:     isVoid,
 			}
 		},
 		nil,
