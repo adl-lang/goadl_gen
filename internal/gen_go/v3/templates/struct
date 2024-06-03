@@ -2,22 +2,28 @@
 {{$name := .Name | public}}
 {{$G := .G}}
 type {{$name}}{{$decl.TypeParams.LSide}} struct {
+	_{{$name}}{{$decl.TypeParams.RSide}}
+}
+
+type _{{$name}}{{$decl.TypeParams.LSide}} struct {
 {{range .Fields}}	{{.Name|public}} {{$G.GoType .TypeExpr}} `json:"{{.SerializedName}}"`
 {{end -}}
 }
 
 func MakeAll_{{$name}}{{.TypeParams.LSide}}(
-{{range .Fields}}{{if not .IsVoid}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},{{end}}
-{{end -}}
+{{range .Fields}}{{if not .IsVoid}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},
+{{end}}{{end -}}
 ) {{$name}}{{.TypeParams.RSide}} {
 	return {{$name}}{{.TypeParams.RSide}}{
+		_{{$name}}{{.TypeParams.RSide}}{
 {{range .Fields}}
 {{- if .IsVoid -}}
-{{$type := $G.GoType .TypeExpr}}		{{.Name | public}}: struct{}{},
+{{$type := $G.GoType .TypeExpr}}			{{.Name | public}}: struct{}{},
 {{- else -}}
-{{$type := $G.GoType .TypeExpr}}		{{.Name | public}}: {{.Name | lower | goEscape}},
+{{$type := $G.GoType .TypeExpr}}			{{.Name | public}}: {{.Name | lower | goEscape}},
 {{- end}}
-{{end}}	}
+{{end}}	},
+		}
 }
 
 func Make_{{$name}}{{.TypeParams.LSide}}(
@@ -25,13 +31,15 @@ func Make_{{$name}}{{.TypeParams.LSide}}(
 {{end}}{{end}}{{end -}}
 ) {{$name}}{{.TypeParams.RSide}} {
 	ret := {{$name}}{{.TypeParams.RSide}}{
+		_{{$name}}{{.TypeParams.RSide}}{
 {{range .Fields}}{{$type := $G.GoType .TypeExpr}} {{if not .IsVoid}} {{if not .HasDefault}}		{{.Name | public}}: {{.Name | lower | goEscape}},
 {{else}}		{{.Name | public}}: ((*{{$name}}{{$decl.TypeParams.RSide}})(nil)).Default_{{.Name}}(),
 {{end}}
 {{- else -}}
 		{{.Name | public}}: struct{}{},
 {{end}}
-{{- end}}	}
+{{- end}}	},
+		}
 	return ret
 }
 

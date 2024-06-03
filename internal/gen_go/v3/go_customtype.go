@@ -8,10 +8,10 @@ import (
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
 )
 
-var goCustomTypeSN = adlast.ScopedName{
-	ModuleName: "adlc.config.go_",
-	Name:       "GoCustomType",
-}
+var goCustomTypeSN = adlast.Make_ScopedName(
+	"adlc.config.go_",
+	"GoCustomType",
+)
 
 func (in *generator) GoRegisterHelper(moduleName string, decl adlast.Decl) (string, error) {
 	jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
@@ -24,7 +24,7 @@ func (in *generator) GoRegisterHelper(moduleName string, decl adlast.Decl) (stri
 	}
 	if in.cli.StdLibGen && gct.Helpers.Import_path == in.cli.GoAdlPath {
 		return fmt.Sprintf(`	RESOLVER.RegisterHelper(
-			adlast.ScopedName{ModuleName: "%s", Name: "%s"},
+			adlast.Make_ScopedName("%s", "%s"),
 			(*%s)(nil),
 		)
 `, moduleName, decl.Name, gct.Helpers.Name), nil
@@ -37,7 +37,7 @@ func (in *generator) GoRegisterHelper(moduleName string, decl adlast.Decl) (stri
 	}
 	in.imports.addSpec(spec)
 	return fmt.Sprintf(`	RESOLVER.RegisterHelper(
-			adlast.ScopedName{ModuleName: "%s", Name: "%s"},
+			adlast.Make_ScopedName("%s", "%s"),
 			(*%s%s)(nil),
 		)
 `, moduleName, decl.Name, gct.Helpers.Pkg+".", gct.Helpers.Name), nil
