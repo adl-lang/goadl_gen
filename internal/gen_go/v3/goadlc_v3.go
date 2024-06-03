@@ -124,16 +124,12 @@ func (im *ImportMap) Set(text string) error {
 type snResolver func(sn adlast.ScopedName) (*adlast.Decl, bool)
 
 type baseGen struct {
-	cli      *goadlcCmd
-	resolver snResolver
-	// declMap    map[string]adlast.Decl
+	cli        *goadlcCmd
+	resolver   snResolver
 	modulePath string
 	midPath    string
 	moduleName string
-	// name       string
-	imports imports
-	// goAdlPath string
-	// stdLibGen bool
+	imports    imports
 }
 
 func (in *goadlcCmd) Run() error {
@@ -317,7 +313,7 @@ func (in *goadlcCmd) generate(
 		if !in.ExcludeAst {
 			override := false
 			fname := modCodeGenDir[len(modCodeGenDir)-1] + "_ast.go"
-			if in.StdLibGen {
+			if _, ok := in.specialTexpr()[m.name]; ok && in.StdLibGen {
 				err := in.writeFile(m.name, "goadl", astBody, filepath.Join(in.Outputdir, fname), in.NoGoFmt, true)
 				if err != nil {
 					return err
@@ -362,8 +358,6 @@ func (in *goadlcCmd) newBaseGen(
 		midPath:    midPath,
 		moduleName: moduleName,
 		imports:    imports,
-		// goAdlPath:  in.GoAdlPath,
-		// stdLibGen:  in.StdLibGen,
 	}
 }
 
@@ -403,28 +397,12 @@ func (in *goadlcCmd) writeFile(
 			useImports = append(useImports, spec)
 		}
 	}
-	if in.StdLibGen && genAst {
-		if moduleName == "sys.adlast" {
-			useImports = append(useImports, importSpec{
-				Path:    in.GoAdlPath + "/sys/adlast",
-				Name:    ".",
-				Aliased: true,
-			})
-		}
-		if moduleName == "sys.types" {
-			useImports = append(useImports, importSpec{
-				Path:    in.GoAdlPath + "/sys/types",
-				Name:    ".",
-				Aliased: true,
-			})
-		}
-		if moduleName == "adlc.config.go_" {
-			useImports = append(useImports, importSpec{
-				Path:    in.GoAdlPath + "/adlc/config/go_",
-				Name:    ".",
-				Aliased: true,
-			})
-		}
+	if _, ok := in.specialTexpr()[moduleName]; genAst && ok && in.StdLibGen {
+		useImports = append(useImports, importSpec{
+			Path:    filepath.Join(in.GoAdlPath, strings.ReplaceAll(moduleName, ".", "/")),
+			Name:    ".",
+			Aliased: true,
+		})
 	}
 
 	header.rr.Render(importsParams{
@@ -476,6 +454,14 @@ func (in *goadlcCmd) reservedImports() []importSpec {
 		{Path: in.GoAdlPath + "/sys/adlast", Aliased: false, Name: "adlast"},
 		{Path: in.GoAdlPath + "/adljson", Aliased: false, Name: "adljson"},
 		{Path: in.GoAdlPath + "/customtypes", Aliased: false, Name: "customtypes"},
+	}
+}
+
+func (in *goadlcCmd) specialTexpr() map[string]struct{} {
+	return map[string]struct{}{
+		"sys.adlast":      {},
+		"sys.types":       {},
+		"adlc.config.go_": {},
 	}
 }
 

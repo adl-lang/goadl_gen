@@ -38,7 +38,7 @@ func newImports(
 }
 
 func (bg *baseGen) GoImport(pkg string) (string, error) {
-	if bg.cli.StdLibGen && pkg == "goadl" {
+	if _, ok := bg.cli.specialTexpr()[bg.moduleName]; ok && bg.cli.StdLibGen && pkg == "goadl" {
 		return "", nil
 	}
 	if spec, ok := bg.imports.byName(pkg); !ok {
