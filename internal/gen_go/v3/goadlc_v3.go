@@ -32,8 +32,8 @@ func NewGenGoV3(rt *root.RootObj) any {
 		Outputdir:   cwd,
 		ModuleMap:   []ImportMap{},
 		GenAstInfo:  []GenAstInfo{},
-		GoAdlPath:   "github.com/adl-lang/goadl_rt/v2",
-		MergeAdlext: "go",
+		GoAdlPath:   "github.com/adl-lang/goadl_rt/v3",
+		MergeAdlext: "adl-go",
 	}
 }
 
@@ -132,9 +132,9 @@ type baseGen struct {
 	midPath    string
 	moduleName string
 	// name       string
-	imports   imports
-	goAdlPath string
-	stdLibGen bool
+	imports imports
+	// goAdlPath string
+	// stdLibGen bool
 }
 
 func (in *goadlcCmd) Run() error {
@@ -300,6 +300,7 @@ func (in *goadlcCmd) generate(
 			}
 			if gct != nil {
 				if !in.ExcludeAst {
+					astBody.generalTexpr(astBody, decl)
 					astBody.generalReg(astBody, decl)
 				}
 			} else {
@@ -354,8 +355,8 @@ func (in *goadlcCmd) newBaseGen(
 		midPath:    midPath,
 		moduleName: moduleName,
 		imports:    imports,
-		goAdlPath:  in.GoAdlPath,
-		stdLibGen:  in.StdLibGen,
+		// goAdlPath:  in.GoAdlPath,
+		// stdLibGen:  in.StdLibGen,
 	}
 }
 
@@ -487,9 +488,9 @@ func (base *baseGen) generalDeclV3(
 			in.rr.Render(structParams{
 				G:          in,
 				Name:       decl.Name,
-				TypeParams: typeParam{s.TypeParams, false, base.stdLibGen},
+				TypeParams: typeParam{s.TypeParams, []string{}, false, base.cli.StdLibGen},
 				Fields: slices.Map(s.Fields, func(f adlast.Field) fieldParams {
-					return makeFieldParam(f)
+					return makeFieldParam(f, decl.Name, in)
 				}),
 			})
 			return nil
@@ -498,9 +499,9 @@ func (base *baseGen) generalDeclV3(
 			in.rr.Render(unionParams{
 				G:          in,
 				Name:       decl.Name,
-				TypeParams: typeParam{u.TypeParams, false, base.stdLibGen},
+				TypeParams: typeParam{u.TypeParams, []string{}, false, base.cli.StdLibGen},
 				Branches: slices.Map[adlast.Field, fieldParams](u.Fields, func(f adlast.Field) fieldParams {
-					return makeFieldParam(f)
+					return makeFieldParam(f, decl.Name, in)
 				}),
 			})
 			return nil
@@ -509,7 +510,7 @@ func (base *baseGen) generalDeclV3(
 			in.rr.Render(typeAliasParams{
 				G:          in,
 				Name:       decl.Name,
-				TypeParams: typeParam{td.TypeParams, false, base.stdLibGen},
+				TypeParams: typeParam{td.TypeParams, []string{}, false, base.cli.StdLibGen},
 				TypeExpr:   td.TypeExpr,
 			})
 			return nil
@@ -518,7 +519,7 @@ func (base *baseGen) generalDeclV3(
 			in.rr.Render(newTypeParams{
 				G:          in,
 				Name:       decl.Name,
-				TypeParams: typeParam{nt.TypeParams, false, base.stdLibGen},
+				TypeParams: typeParam{nt.TypeParams, []string{}, false, base.cli.StdLibGen},
 				TypeExpr:   nt.TypeExpr,
 			})
 			return nil
@@ -531,14 +532,33 @@ func (base *baseGen) generalTexpr(
 	body *generator,
 	decl adlast.Decl,
 ) {
+	type_name := decl.Name
 	tp := typeParamsFromDecl(decl)
-	tp.stdlib = base.stdLibGen
+
+	jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
+	gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
+	if err != nil {
+		panic(err)
+	}
+	if gct != nil {
+		pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
+		spec := importSpec{
+			Path:    gct.Gotype.Import_path,
+			Name:    gct.Gotype.Pkg,
+			Aliased: gct.Gotype.Pkg != pkg,
+		}
+		base.imports.addSpec(spec)
+		type_name = gct.Gotype.Pkg + "." + gct.Gotype.Name
+		tp.type_constraints = gct.Gotype.Type_constraints
+	}
+
+	tp.stdlib = base.cli.StdLibGen
 	body.rr.Render(aTexprParams{
 		G:          body,
 		ModuleName: base.moduleName,
 		Name:       decl.Name,
+		TypeName:   type_name,
 		TypeParams: tp,
-		Decl:       decl,
 	})
 }
 
@@ -556,7 +576,11 @@ func (base *baseGen) generalReg(
 	})
 }
 
-func makeFieldParam(f adlast.Field) fieldParams {
+func makeFieldParam(
+	f adlast.Field,
+	declName string,
+	gen *generator,
+) fieldParams {
 	isVoid := false
 	if pr, ok := f.TypeExpr.TypeRef.Cast_primitive(); ok {
 		if pr == "Void" {
@@ -568,6 +592,8 @@ func makeFieldParam(f adlast.Field) fieldParams {
 		func(nothing struct{}) fieldParams {
 			return fieldParams{
 				Field:      f,
+				DeclName:   declName,
+				G:          gen,
 				HasDefault: false,
 				IsVoid:     isVoid,
 			}
@@ -577,6 +603,8 @@ func makeFieldParam(f adlast.Field) fieldParams {
 			// val := reflect.ValueOf(just).Interface()
 			return fieldParams{
 				Field:      f,
+				DeclName:   declName,
+				G:          gen,
 				HasDefault: true,
 				Just:       just,
 				IsVoid:     isVoid,

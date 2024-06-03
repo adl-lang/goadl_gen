@@ -1,6 +1,5 @@
 {{$decl := .}}
 {{$name := .Name | .G.GoEscape | public}}
-{{$G := .G}}
 type {{$name}}{{$decl.TypeParams.LSide}} struct {
 	Branch {{$name}}Branch{{$decl.TypeParams.RSide}}
 }
@@ -11,22 +10,22 @@ type {{$name}}Branch{{$decl.TypeParams.LSide}} interface {
 
 func (*{{$name}}{{.TypeParams.RSide}}) MakeNewBranch(key string) (any, error) {
 	switch key {
-	{{range .Branches -}}{{$type := $G.GoType .TypeExpr}}case "{{.SerializedName}}":
+	{{range .Branches -}}{{$type := .G.GoType .TypeExpr}}case "{{.SerializedName}}":
 		return &_{{$name}}_{{.Name | public}}{{$type.TypeParams.RSide}}{}, nil
 	{{end}}}
-	return nil, {{$G.GoImport "fmt"}}Errorf("unknown branch is : %s", key)
+	return nil, {{.G.GoImport "fmt"}}Errorf("unknown branch is : %s", key)
 }
 
-{{range .Branches -}}{{$type := $G.GoType .TypeExpr}}
+{{range .Branches -}}{{$type := .G.GoType .TypeExpr}}
 type _{{$name}}_{{.Name | public}}{{$type.TypeParams.LSide}} struct {
 	V {{$type}} `branch:"{{.Name}}"`
 }{{end}}
 
-{{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
+{{range .Branches -}}{{$Type := .G.GoType .TypeExpr}}
 func (_{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}) is{{$name}}Branch() {}
 {{- end}}
 
-{{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
+{{range .Branches -}}{{$Type := .G.GoType .TypeExpr}}
 {{if .IsVoid -}}
 func Make_{{$name}}_{{.Name}}{{$decl.TypeParams.LSide}}() {{$name}}{{$decl.TypeParams.RSide}} {
 	return {{$name}}{{$decl.TypeParams.RSide}}{
@@ -42,7 +41,7 @@ func Make_{{$name}}_{{.Name}}{{$decl.TypeParams.LSide}}(v {{$Type}}) {{$name}}{{
 {{- end}}
 {{end}}
 
-{{range .Branches -}}{{$Type := $G.GoType .TypeExpr}}
+{{range .Branches -}}{{$Type := .G.GoType .TypeExpr}}
 func (un {{$name}}{{$decl.TypeParams.RSide}})Cast_{{.Name}}() ({{$Type}}, bool) {
 	br, ok := un.Branch.(_{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}})
 	return br.V, ok
@@ -52,12 +51,12 @@ func (un {{$name}}{{$decl.TypeParams.RSide}})Cast_{{.Name}}() ({{$Type}}, bool) 
 {{$htp := .TypeParams.AddParam "T"}}
 
 func Handle_{{$name}}{{$htp.LSide}}(
-	_in {{$name}}{{.TypeParams.RSide}},{{range .Branches}}{{$Type := $G.GoType .TypeExpr}}
+	_in {{$name}}{{.TypeParams.RSide}},{{range .Branches}}{{$Type := .G.GoType .TypeExpr}}
 	{{.Name}} func({{.Name}} {{$Type}}) ({{$htp.Last}}),{{end}}
 	_default func() {{$htp.Last}},
 ) ({{$htp.Last}}) {
 	switch _b := _in.Branch.(type) {
-	{{range .Branches -}}{{- $Type := $G.GoType .TypeExpr -}}
+	{{range .Branches -}}{{- $Type := .G.GoType .TypeExpr -}}
 	case _{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
 		if {{.Name}} != nil {
 			return {{.Name}}(_b.V)
@@ -70,12 +69,12 @@ func Handle_{{$name}}{{$htp.LSide}}(
 }
 
 func HandleWithErr_{{$name}}{{$htp.LSide}}(
-	_in {{$name}}{{.TypeParams.RSide}},{{range .Branches}}{{$Type := $G.GoType .TypeExpr}}
+	_in {{$name}}{{.TypeParams.RSide}},{{range .Branches}}{{$Type := .G.GoType .TypeExpr}}
 	{{.Name}} func({{.Name}} {{$Type}}) ({{$htp.Last}}, error),{{end}}
 	_default func() ({{$htp.Last}}, error),
 ) ({{$htp.Last}}, error) {
 	switch _b := _in.Branch.(type) {
-	{{range .Branches -}}{{$Type := $G.GoType .TypeExpr -}}
+	{{range .Branches -}}{{$Type := .G.GoType .TypeExpr -}}
 	case _{{$name}}_{{.Name | public}}{{$Type.TypeParams.RSide}}:
 		if {{.Name}} != nil {
 			return {{.Name}}(_b.V)

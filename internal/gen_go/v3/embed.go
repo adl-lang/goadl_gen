@@ -81,7 +81,13 @@ type scopedDeclParams struct {
 	Decl       adlast.Decl
 }
 
-type aTexprParams scopedDeclParams
+type aTexprParams struct {
+	G          *generator
+	ModuleName string
+	Name       string
+	TypeName   string
+	TypeParams typeParam
+}
 
 type headerParams struct {
 	Pkg string
@@ -108,6 +114,8 @@ type unionParams struct {
 
 type fieldParams struct {
 	adlast.Field
+	DeclName   string
+	G          *generator
 	HasDefault bool
 	Just       any
 	IsVoid     bool

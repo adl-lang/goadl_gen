@@ -15,26 +15,30 @@ func typeParamsFromDecl(decl adlast.Decl) typeParam {
 		decl.Type_,
 		func(struct_ adlast.Struct) typeParam {
 			return typeParam{
-				ps:    struct_.TypeParams,
-				added: false,
+				ps:               struct_.TypeParams,
+				type_constraints: []string{},
+				added:            false,
 			}
 		},
 		func(union_ adlast.Union) typeParam {
 			return typeParam{
-				ps:    union_.TypeParams,
-				added: false,
+				ps:               union_.TypeParams,
+				type_constraints: []string{},
+				added:            false,
 			}
 		},
 		func(type_ adlast.TypeDef) typeParam {
 			return typeParam{
-				ps:    type_.TypeParams,
-				added: false,
+				ps:               type_.TypeParams,
+				type_constraints: []string{},
+				added:            false,
 			}
 		},
 		func(newtype_ adlast.NewType) typeParam {
 			return typeParam{
-				ps:    newtype_.TypeParams,
-				added: false,
+				ps:               newtype_.TypeParams,
+				type_constraints: []string{},
+				added:            false,
 			}
 		},
 		nil,
@@ -42,9 +46,10 @@ func typeParamsFromDecl(decl adlast.Decl) typeParam {
 }
 
 type typeParam struct {
-	ps     []string
-	added  bool
-	stdlib bool
+	ps               []string
+	type_constraints []string
+	added            bool
+	stdlib           bool
 }
 
 func (tp typeParam) MarshalJSON() ([]byte, error) {
@@ -92,7 +97,12 @@ func (tp typeParam) LSide() string {
 	if len(tp.ps) == 0 {
 		return ""
 	}
-	return "[" + strings.Join(slices.Map(tp.ps, func(e string) string { return e + " any" }), ", ") + "]"
+	return "[" + strings.Join(slices.MapI(tp.ps, func(e string, i int) string {
+		if i+1 <= len(tp.type_constraints) {
+			return e + " " + tp.type_constraints[i]
+		}
+		return e + " any"
+	}), ", ") + "]"
 }
 func (tp typeParam) RSide() string {
 	if len(tp.ps) == 0 {

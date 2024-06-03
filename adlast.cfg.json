@@ -30,8 +30,8 @@
     }
   ],
   "Files": [
-    "adl/stdlib@1.2/sys/adlast.adl",
-    "adl/stdlib@1.2/sys/types.adl",
+    ".local/lib/adl/sys/adlast.adl",
+    ".local/lib/adl/sys/types.adl",
     "adl/stdlib@1.2/adlc/config/go_.adl"
   ]
 }

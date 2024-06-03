@@ -54,7 +54,8 @@ func (in *baseGen) GoType(
 		},
 		func(tp string) goTypeExpr {
 			return goTypeExpr{"", tp, typeParam{
-				ps: []string{string(tp)},
+				ps:               []string{string(tp)},
+				type_constraints: []string{},
 				// isTypeParam: true,
 			}, true}
 		},
@@ -84,6 +85,7 @@ func (in *baseGen) GoType(
 							pt := in.GoType(a)
 							return pt.String()
 						}),
+						type_constraints: []string{},
 					},
 					IsTypeParam: false,
 				}

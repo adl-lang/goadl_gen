@@ -21,6 +21,8 @@ struct GoCustomType
 struct GoType {
     String name;
     String pkg;
+    /// list of type constraints e.g. for Map this would be [comparable, any]
+    Vector<String> type_constraints;
     String import_path;
 };
 
