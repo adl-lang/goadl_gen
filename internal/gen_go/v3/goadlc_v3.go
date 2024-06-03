@@ -27,11 +27,11 @@ func NewGenGoV3(rt *root.RootObj) any {
 		fmt.Fprintf(os.Stderr, `WARNING: error getting current working directory %v\n`, err)
 	}
 	return &goadlcCmd{
-		rt:          rt,
-		WorkingDir:  wk,
-		Outputdir:   cwd,
-		ModuleMap:   []ImportMap{},
-		GenAstInfo:  []GenAstInfo{},
+		rt:         rt,
+		WorkingDir: wk,
+		Outputdir:  cwd,
+		ModuleMap:  []ImportMap{},
+		// GenAstInfo:  []GenAstInfo{},
 		GoAdlPath:   "github.com/adl-lang/goadl_rt/v3",
 		MergeAdlext: "adl-go",
 	}
@@ -39,20 +39,19 @@ func NewGenGoV3(rt *root.RootObj) any {
 
 type goadlcCmd struct {
 	rt          *root.RootObj
-	WorkingDir  string      `help:"The temp directory used to place intermediate files."`
-	ChangePWD   string      `help:"The directory to change to after root read cfg but before running (used in dev)"`
-	Searchdir   []string    `opts:"short=I" help:"Add the specifed directory to the ADL searchpath"`
-	Outputdir   string      `opts:"short=O" help:"Set the directory where generated code is written "`
-	MergeAdlext string      `help:"Add the specifed adl file extension to merged on loading"`
-	Debug       bool        `help:"Print extra diagnostic information, especially about files being read/written"`
-	NoGoFmt     bool        `help:"Don't run 'go fmt' on the generated files"`
-	GoAdlPath   string      `help:"The path to the Go ADL runtime import"`
-	ModulePath  string      `help:"The path of the Go module for the generated code. Overrides the module-path from the '--go-mod-file' flag."`
-	GoModFile   string      `help:"Path of a go.mod file. If the file exists, the module-path is used for generated imports."`
-	ExcludeAst  bool        `opts:"short=t" help:"Don't generate type expr, scoped decl and init registration functions"`
-	ModuleMap   ImportMaps  `opts:"short=M" help:"Mapping from ADL module name to Go import specifiction"`
-	GenAstInfo  GenAstInfos `help:"Mapping from ADL module name to details on where to generate ast info. Of the form [modulename:goPkg:outputFile]"`
-	StdLibGen   bool        `help:"Used for bootstrapping, only use when generating the sys.aldast & sys.types modules"`
+	WorkingDir  string     `help:"The temp directory used to place intermediate files."`
+	ChangePWD   string     `help:"The directory to change to after root read cfg but before running (used in dev)"`
+	Searchdir   []string   `opts:"short=I" help:"Add the specifed directory to the ADL searchpath"`
+	Outputdir   string     `opts:"short=O" help:"Set the directory where generated code is written "`
+	MergeAdlext string     `help:"Add the specifed adl file extension to merged on loading"`
+	Debug       bool       `help:"Print extra diagnostic information, especially about files being read/written"`
+	NoGoFmt     bool       `help:"Don't run 'go fmt' on the generated files"`
+	GoAdlPath   string     `help:"The path to the Go ADL runtime import"`
+	ModulePath  string     `help:"The path of the Go module for the generated code. Overrides the module-path from the '--go-mod-file' flag."`
+	GoModFile   string     `help:"Path of a go.mod file. If the file exists, the module-path is used for generated imports."`
+	ExcludeAst  bool       `opts:"short=t" help:"Don't generate type expr, scoped decl and init registration functions"`
+	ModuleMap   ImportMaps `opts:"short=M" help:"Mapping from ADL module name to Go import specifiction"`
+	StdLibGen   bool       `help:"Used for bootstrapping, only use when generating the sys.aldast & sys.types modules"`
 
 	// NoOverwrite    bool     `help:"Don't update files that haven't changed"`
 	// Manifest       string   `help:"Write a manifest file recording generated files"`
@@ -203,7 +202,7 @@ func (in *goadlcCmd) setup() (
 	jb := func(fd io.Reader) (map[string]adlast.Module, map[string]adlast.Decl, error) {
 		combinedAst = make(map[string]adlast.Module)
 		declMap := make(map[string]adlast.Decl)
-		dec := goadl.CreateJsonDecodeBinding(goadl.Texpr_StringMap[adlast.Module](goadl.Texpr_Module()), goadl.RESOLVER)
+		dec := goadl.CreateJsonDecodeBinding(adlast.Texpr_StringMap[adlast.Module](goadl.Texpr_Module()), goadl.RESOLVER)
 		err := dec.Decode(fd, &combinedAst)
 		if err != nil {
 			panic(fmt.Errorf("%w", err))
@@ -317,18 +316,26 @@ func (in *goadlcCmd) generate(
 		}
 		if !in.ExcludeAst {
 			override := false
-			for _, astinfo := range in.GenAstInfo {
-				if astinfo.ModuleName == m.name {
-					err := in.writeFile(m.name, astinfo.Pkg, astBody, filepath.Join(in.Outputdir, astinfo.RelOutputFile), in.NoGoFmt, true)
-					if err != nil {
-						return err
-					}
-					override = true
-					break
+			fname := modCodeGenDir[len(modCodeGenDir)-1] + "_ast.go"
+			if in.StdLibGen {
+				err := in.writeFile(m.name, "goadl", astBody, filepath.Join(in.Outputdir, fname), in.NoGoFmt, true)
+				if err != nil {
+					return err
 				}
+				override = true
 			}
+			// for _, astinfo := range in.GenAstInfo {
+			// 	if astinfo.ModuleName == m.name {
+			// 		err := in.writeFile(m.name, astinfo.Pkg, astBody, filepath.Join(in.Outputdir, astinfo.RelOutputFile), in.NoGoFmt, true)
+			// 		if err != nil {
+			// 			return err
+			// 		}
+			// 		override = true
+			// 		break
+			// 	}
+			// }
 			if !override {
-				err := in.writeFile(m.name, modCodeGenPkg, astBody, filepath.Join(path, modCodeGenDir[len(modCodeGenDir)-1]+"_ast.go"), in.NoGoFmt, true)
+				err := in.writeFile(m.name, modCodeGenPkg, astBody, filepath.Join(path, fname), in.NoGoFmt, true)
 				if err != nil {
 					return err
 				}

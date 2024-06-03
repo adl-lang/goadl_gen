@@ -114,10 +114,10 @@ func (tp typeParam) TexprArgs() string {
 	if len(tp.ps) == 0 {
 		return ""
 	}
-	if tp.stdlib {
-		return strings.Join(slices.Map(tp.ps, func(e string) string { return fmt.Sprintf("%s ATypeExpr[%s]", strings.ToLower(e), e) }), ", ")
-	}
-	return strings.Join(slices.Map(tp.ps, func(e string) string { return fmt.Sprintf("%s goadl.ATypeExpr[%s]", strings.ToLower(e), e) }), ", ")
+	// if tp.stdlib {
+	// 	return strings.Join(slices.Map(tp.ps, func(e string) string { return fmt.Sprintf("%s ATypeExpr[%s]", strings.ToLower(e), e) }), ", ")
+	// }
+	return strings.Join(slices.Map(tp.ps, func(e string) string { return fmt.Sprintf("%s adlast.ATypeExpr[%s]", strings.ToLower(e), e) }), ", ")
 }
 func (tp typeParam) TexprValues() string {
 	if len(tp.ps) == 0 {

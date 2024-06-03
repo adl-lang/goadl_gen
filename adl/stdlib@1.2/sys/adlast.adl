@@ -29,6 +29,10 @@ struct TypeExpr
     Vector<TypeExpr> parameters;
 };
 
+// struct ATypeExpr<T> {
+//     TypeExpr value;
+// };
+
 struct Field
 {
     Ident name;

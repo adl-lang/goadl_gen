@@ -22,9 +22,7 @@ func Texpr_{{.ADL}}() ATypeExpr[{{.Go}}] {
 		Make_TypeRef_primitive("{{.ADL}}"),
 		[]TypeExpr{},
 	)
-	return ATypeExpr[{{.Go}}]{
-		Value: te,
-	}
+	return Make_ATypeExpr[{{.Go}}](te)
 }
 `
 	paramTmpl = `
@@ -35,9 +33,7 @@ func Texpr_{{.ADL}}[T any](te ATypeExpr[T]) ATypeExpr[{{.Go}}T] {
 			te.Value,
 		},
 	)
-	return ATypeExpr[{{.Go}}T]{
-		Value: te0,
-	}
+	return Make_ATypeExpr[{{.Go}}T](te0)
 }
 `
 )
@@ -84,9 +80,34 @@ import (
 )
 
 type ATypeExpr[T any] struct {
-	Value TypeExpr
+	_ATypeExpr[T]
 }
-`)
+
+type _ATypeExpr[T any] struct {
+	Value TypeExpr %s
+}
+
+func MakeAll_ATypeExpr[T any](
+	value TypeExpr,
+) ATypeExpr[T] {
+	return ATypeExpr[T]{
+		_ATypeExpr[T]{
+			Value: value,
+		},
+	}
+}
+
+func Make_ATypeExpr[T any](
+	value TypeExpr,
+) ATypeExpr[T] {
+	ret := ATypeExpr[T]{
+		_ATypeExpr[T]{
+			Value: value,
+		},
+	}
+	return ret
+}
+`, "`json:\"value\"`")
 	for _, te := range texprData {
 		if te.param {
 			err = pt.Execute(os.Stdout, te)
