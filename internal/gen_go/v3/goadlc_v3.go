@@ -26,11 +26,18 @@ func NewGenGoV3(rt *root.RootObj) any {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, `WARNING: error getting current working directory %v\n`, err)
 	}
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, `WARNING: error getting UserCacheDir %v\n`, err)
+	}
+
 	return &goadlcCmd{
-		rt:         rt,
-		WorkingDir: wk,
-		Outputdir:  cwd,
-		ModuleMap:  []ImportMap{},
+		rt:           rt,
+		UserCacheDir: filepath.Join(cacheDir, "adl-bundles"),
+		WorkingDir:   wk,
+		Outputdir:    cwd,
+		// ModuleMap:  []ImportMap{},
+		BundleMap: []BundleMap{},
 		// GenAstInfo:  []GenAstInfo{},
 		GoAdlPath:   "github.com/adl-lang/goadl_rt/v3",
 		MergeAdlext: "adl-go",
@@ -38,20 +45,23 @@ func NewGenGoV3(rt *root.RootObj) any {
 }
 
 type goadlcCmd struct {
-	rt          *root.RootObj
-	WorkingDir  string     `help:"The temp directory used to place intermediate files."`
-	ChangePWD   string     `help:"The directory to change to after root read cfg but before running (used in dev)"`
-	Searchdir   []string   `opts:"short=I" help:"Add the specifed directory to the ADL searchpath"`
-	Outputdir   string     `opts:"short=O" help:"Set the directory where generated code is written "`
-	MergeAdlext string     `help:"Add the specifed adl file extension to merged on loading"`
-	Debug       bool       `help:"Print extra diagnostic information, especially about files being read/written"`
-	NoGoFmt     bool       `help:"Don't run 'go fmt' on the generated files"`
-	GoAdlPath   string     `help:"The path to the Go ADL runtime import"`
-	ModulePath  string     `help:"The path of the Go module for the generated code. Overrides the module-path from the '--go-mod-file' flag."`
-	GoModFile   string     `help:"Path of a go.mod file. If the file exists, the module-path is used for generated imports."`
-	ExcludeAst  bool       `opts:"short=t" help:"Don't generate type expr, scoped decl and init registration functions"`
-	ModuleMap   ImportMaps `opts:"short=M" help:"Mapping from ADL module name to Go import specifiction"`
-	StdLibGen   bool       `help:"Used for bootstrapping, only use when generating the sys.aldast & sys.types modules"`
+	rt *root.RootObj
+
+	UserCacheDir string   `help:"The directory used to place cached files (e.g. download adl source)."`
+	WorkingDir   string   `help:"The temp directory used to place intermediate files."`
+	ChangePWD    string   `help:"The directory to change to after root read cfg but before running (used in dev)"`
+	Searchdir    []string `opts:"short=I" help:"Add the specifed directory to the ADL searchpath"`
+	Outputdir    string   `opts:"short=O" help:"Set the directory where generated code is written "`
+	MergeAdlext  string   `help:"Add the specifed adl file extension to merged on loading"`
+	Debug        bool     `help:"Print extra diagnostic information, especially about files being read/written"`
+	NoGoFmt      bool     `help:"Don't run 'go fmt' on the generated files"`
+	GoAdlPath    string   `help:"The path to the Go ADL runtime import"`
+	ModulePath   string   `help:"The path of the Go module for the generated code. Overrides the module-path from the '--go-mod-file' flag."`
+	GoModFile    string   `help:"Path of a go.mod file. If the file exists, the module-path is used for generated imports."`
+	ExcludeAst   bool     `opts:"short=t" help:"Don't generate type expr, scoped decl and init registration functions"`
+	// ModuleMap   ImportMaps `opts:"short=M" help:"Mapping from ADL module name to Go import specifiction"`
+	BundleMap BundleMaps `help:"Mapping from ADL bundle to go module. Of the form [module_prefix:go_module_path]"`
+	StdLibGen bool       `help:"Used for bootstrapping, only use when generating the sys.aldast & sys.types modules"`
 
 	// NoOverwrite    bool     `help:"Don't update files that haven't changed"`
 	// Manifest       string   `help:"Write a manifest file recording generated files"`
@@ -61,42 +71,45 @@ type goadlcCmd struct {
 	files []string
 }
 
-type GenAstInfos []GenAstInfo
+type BundleMaps []BundleMap
 
-type GenAstInfo struct {
-	ModuleName    string
-	Pkg           string
-	RelOutputFile string
+type BundleMap struct {
+	AdlModuleNamePrefix string
+	GoModPath           string
+	AdlSrc              string
+	GoModVersion        *string
 }
 
-func (ims *GenAstInfos) Set(text string) error {
+func (ims *BundleMaps) Set(text string) error {
 	panic("method only here to make opts happy")
 }
 
-func (im *GenAstInfo) Set(text string) error {
-	parts := strings.Split(text, `:`)
+type ImportMaps []ImportMap
+
+func (im *BundleMap) Set(text string) error {
+	parts := strings.Split(text, `|`)
 	lp := len(parts)
-	if lp != 3 {
-		return fmt.Errorf("expecting module to go map of the form [modulename:goPkg:outputFile]")
+	if lp < 2 || lp > 4 {
+		return fmt.Errorf("expecting bundle to go map of the form [module_prefix|go_module_path|adl_src]")
 	}
-	im.ModuleName = parts[0]
-	im.Pkg = parts[1]
-	im.RelOutputFile = parts[2]
+	im.AdlModuleNamePrefix = parts[0]
+	im.GoModPath = parts[1]
+	if lp >= 3 {
+		im.GoModVersion = &parts[2]
+	}
 	return nil
 }
-
-type ImportMaps []ImportMap
 
 func (ims *ImportMaps) Set(text string) error {
 	panic("method only here to make opts happy")
 }
 
 type ImportMap struct {
-	ModuleName   string
-	Name         string
-	Path         string
-	RelOutputDir *string `json:",omitempty"`
-	alias        bool
+	ModuleName string
+	Name       string
+	Path       string
+	// RelOutputDir *string `json:",omitempty"`
+	alias bool
 }
 
 func (im *ImportMap) Set(text string) error {
@@ -115,17 +128,18 @@ func (im *ImportMap) Set(text string) error {
 		im.Path = parts[2]
 		im.alias = true
 	}
-	if lp == 4 {
-		im.RelOutputDir = &parts[3]
-	}
+	// if lp == 4 {
+	// 	im.RelOutputDir = &parts[3]
+	// }
 	return nil
 }
 
 type snResolver func(sn adlast.ScopedName) (*adlast.Decl, bool)
 
 type baseGen struct {
-	cli        *goadlcCmd
-	resolver   snResolver
+	cli      *goadlcCmd
+	resolver snResolver
+	// typetoken_flds func(sn adlast.ScopedName, tbind []goadl.TypeBinding) []adlast.Field
 	modulePath string
 	midPath    string
 	moduleName string
@@ -138,13 +152,17 @@ func (in *goadlcCmd) Run() error {
 
 func (in *goadlcCmd) setup() (
 	combinedAst map[string]adlast.Module,
-	importMap map[string]importSpec,
+	// importMap map[string]importSpec,
 	modulePath string,
 	midPath string,
 	modules []namedModule,
 	setupErr error,
 ) {
-	in.rt.Config(in)
+	setupErr = in.rt.Config(in)
+	if setupErr != nil {
+		setupErr = fmt.Errorf("  Error with config file. error : %v", setupErr)
+		return
+	}
 
 	if in.ChangePWD != "" {
 		err := os.Chdir(in.ChangePWD)
@@ -153,20 +171,30 @@ func (in *goadlcCmd) setup() (
 			return
 		}
 	}
-	importMap = map[string]importSpec{}
-	for _, im := range in.ModuleMap {
-		if _, ok := importMap[im.ModuleName]; ok {
-			setupErr = fmt.Errorf("duplicate module in --module-map '%s'", im.ModuleName)
-			return
+
+	for _, bm := range in.BundleMap {
+		if strings.HasPrefix(bm.AdlSrc, "file://") {
+			in.Searchdir = append(in.Searchdir, bm.AdlSrc[len("file://"):])
 		}
-		importMap[im.ModuleName] = importSpec{
-			Path:    im.Path,
-			Name:    im.Name,
-			Aliased: im.alias,
-		}
+		// if bm.AdlSrc == "adlstdlib" {
+		// }
 	}
 
+	// importMap = map[string]importSpec{}
+	// for _, im := range in.ModuleMap {
+	// 	if _, ok := importMap[im.ModuleName]; ok {
+	// 		setupErr = fmt.Errorf("duplicate module in --module-map '%s'", im.ModuleName)
+	// 		return
+	// 	}
+	// 	importMap[im.ModuleName] = importSpec{
+	// 		Path:    im.Path,
+	// 		Name:    im.Name,
+	// 		Aliased: im.alias,
+	// 	}
+	// }
+
 	cwd, err := os.Getwd()
+	fmt.Fprintf(os.Stderr, "Getwd %v\n", cwd)
 	dFs := os.DirFS(cwd)
 	if err != nil {
 		setupErr = fmt.Errorf("can't get cwd : %v", err)
@@ -227,9 +255,38 @@ func (in *goadlcCmd) setup() (
 	return
 }
 
+func containsTypeToken(str adlast.Struct) bool {
+	for _, fld := range str.Fields {
+		if pr, ok := fld.TypeExpr.TypeRef.Cast_primitive(); ok && pr == "TypeToken" {
+			return true
+		}
+	}
+	return false
+}
+
+func getTypeToken(str adlast.Struct, tbind []goadl.TypeBinding) ([]adlast.Field, bool) {
+	concrete := true
+	ttFld := []adlast.Field{}
+	for _, fld := range str.Fields {
+		if pr, ok := fld.TypeExpr.TypeRef.Cast_primitive(); ok && pr == "TypeToken" {
+			monoTe, c0 := goadl.SubstituteTypeBindings(tbind, fld.TypeExpr.Parameters[0])
+			concrete = concrete && c0
+			fld0 := adlast.Make_Field(
+				fld.Name,
+				fld.SerializedName,
+				monoTe,
+				types.Make_Maybe_nothing[any](),
+				fld.Annotations,
+			)
+			ttFld = append(ttFld, fld0)
+		}
+	}
+	return ttFld, concrete
+}
+
 func (in *goadlcCmd) generate(
 	combinedAst map[string]adlast.Module,
-	importMap map[string]importSpec,
+	// importMap map[string]importSpec,
 	modulePath string,
 	midPath string,
 	modules []namedModule,
@@ -239,46 +296,55 @@ func (in *goadlcCmd) generate(
 		return setupErr
 	}
 	resolver := func(sn adlast.ScopedName) (*adlast.Decl, bool) {
-		mod, ok := combinedAst[sn.ModuleName]
-		if !ok {
-			si := goadl.RESOLVER.Resolve(sn)
-			if si != nil {
-				return &si.Decl, true
+		if mod, ok := combinedAst[sn.ModuleName]; ok {
+			decl, ok := mod.Decls[sn.Name]
+			if !ok {
+				panic(fmt.Errorf("%v", sn.Name))
 			}
-			for k := range combinedAst {
-				fmt.Printf("-- %v\n", k)
-			}
-			panic(fmt.Errorf("%v", sn.ModuleName))
-			return nil, false
+			return &decl, true
 		}
-		decl, ok := mod.Decls[sn.Name]
-		if !ok {
-			panic(fmt.Errorf("%v", sn.Name))
-			return nil, false
+		// resolve adlast, types & go_ even if not provided as input adl source
+		si := goadl.RESOLVER.Resolve(sn)
+		if si != nil {
+			return &si.Decl, true
 		}
-		return &decl, true
+		for k := range combinedAst {
+			fmt.Printf("-- %v\n", k)
+		}
+		panic(fmt.Errorf("%v", sn.ModuleName))
 	}
+
+	// typetoken_flds := func(sn adlast.ScopedName, tbind []goadl.TypeBinding) []adlast.Field {
+	// 	decl, ok := resolver(sn)
+	// 	if !ok {
+	// 		panic(fmt.Errorf("missing decl %v", sn))
+	// 	}
+	// 	if str, ok := decl.Type_.Cast_struct_(); ok {
+	// 		return getTypeToken(str, tbind)
+	// 	}
+	// 	return []adlast.Field{}
+	// }
 
 	for _, m := range modules {
 		modCodeGenDir := strings.Split(m.name, ".")
 		// modCodeGenPkg := pkgFromImport(strings.ReplaceAll(m.name, ".", "/"))
 		modCodeGenPkg := modCodeGenDir[len(modCodeGenDir)-1]
 		path := in.Outputdir + "/" + strings.Join(modCodeGenDir, "/")
-		for _, mm := range in.ModuleMap {
-			if mm.ModuleName == m.name {
-				modCodeGenPkg = mm.Name
-				if mm.RelOutputDir != nil {
-					path = filepath.Join(in.Outputdir, *mm.RelOutputDir)
-				}
-			}
-		}
+		// for _, mm := range in.ModuleMap {
+		// 	if mm.ModuleName == m.name {
+		// 		modCodeGenPkg = mm.Name
+		// 		if mm.RelOutputDir != nil {
+		// 			path = filepath.Join(in.Outputdir, *mm.RelOutputDir)
+		// 		}
+		// 	}
+		// }
 		// baseGen := in.newBaseGen(resolver, declMap, importMap, modulePath, midPath, m.name)
 		declBody := &generator{
-			baseGen: in.newBaseGen(resolver, importMap, modulePath, midPath, m.name),
+			baseGen: in.newBaseGen(resolver, modulePath, midPath, m.name),
 			rr:      templateRenderer{t: templates},
 		}
 		astBody := &generator{
-			baseGen: in.newBaseGen(resolver, importMap, modulePath, midPath, m.name),
+			baseGen: in.newBaseGen(resolver, modulePath, midPath, m.name),
 			rr:      templateRenderer{t: templates},
 		}
 		declsNames := []string{}
@@ -343,17 +409,20 @@ func (in *goadlcCmd) generate(
 
 func (in *goadlcCmd) newBaseGen(
 	resolver func(sn adlast.ScopedName) (*adlast.Decl, bool),
-	importMap map[string]importSpec,
+	// typetoken_flds func(sn adlast.ScopedName, tbind []goadl.TypeBinding) []adlast.Field,
+	// importMap map[string]importSpec,
+	// bundleMap BundleMaps,
 	modulePath, midPath string,
 	moduleName string,
 ) *baseGen {
 	imports := newImports(
 		in.reservedImports(),
-		importMap,
+		in.BundleMap,
 	)
 	return &baseGen{
-		cli:        in,
-		resolver:   resolver,
+		cli:      in,
+		resolver: resolver,
+		// typetoken_flds: typetoken_flds,
 		modulePath: modulePath,
 		midPath:    midPath,
 		moduleName: moduleName,
@@ -478,6 +547,31 @@ func (base *baseGen) generalDeclV3(
 	adlast.Handle_DeclType[any](
 		decl.Type_,
 		func(s adlast.Struct) any {
+
+			typeTokenFields := []typeTokenField{}
+			for _, fld := range s.Fields {
+				if ref, ok := fld.TypeExpr.TypeRef.Cast_reference(); ok {
+					decl1, ok := in.resolver(ref)
+					if !ok {
+						panic(fmt.Errorf("missing decl %v", ref))
+					}
+					if str, ok := decl1.Type_.Cast_struct_(); ok {
+						tbind := goadl.CreateDecBoundTypeParams(goadl.TypeParamsFromDecl(*decl1), fld.TypeExpr.Parameters)
+						refFields, concrete := getTypeToken(str, tbind)
+						if !concrete {
+							in.rr.buf.Write([]byte(fmt.Sprintf("// %s::%s Type Param is passed through to a TypeToken, not generating TypeTokenTexprs method\n", decl.Name, fld.Name)))
+							typeTokenFields = []typeTokenField{}
+							break
+						}
+						if len(refFields) != 0 {
+							typeTokenFields = append(typeTokenFields, typeTokenField{
+								Field:     fld,
+								RefFields: refFields,
+							})
+						}
+					}
+				}
+			}
 			in.rr.Render(structParams{
 				G:          in,
 				Name:       decl.Name,
@@ -485,6 +579,10 @@ func (base *baseGen) generalDeclV3(
 				Fields: slices.Map(s.Fields, func(f adlast.Field) fieldParams {
 					return makeFieldParam(f, decl.Name, in)
 				}),
+				TypeTokenFields:   typeTokenFields,
+				ContainsTypeToken: containsTypeToken(s),
+				// ContainsTypeToken: containsTypeToken(s),
+				// RefToTypeToken:    refs_typetoken,
 			})
 			return nil
 		},

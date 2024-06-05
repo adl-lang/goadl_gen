@@ -31,7 +31,7 @@ func init() {
 		Cfg: "adlast.cfg.json",
 	}
 	cmd = NewGenGoV3(rt).(*goadlcCmd)
-	combinedAst, importMap, modulePath, midPath, modules, setupErr = cmd.setup()
+	combinedAst, modulePath, midPath, modules, setupErr = cmd.setup()
 	cmd.Debug = false
 }
 
@@ -41,6 +41,6 @@ func BenchmarkGen(t *testing.B) {
 		t.Fatal(setupErr)
 	}
 	for i := 0; i < t.N; i++ {
-		cmd.generate(combinedAst, importMap, modulePath, midPath, modules, setupErr)
+		cmd.generate(combinedAst, modulePath, midPath, modules, setupErr)
 	}
 }

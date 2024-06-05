@@ -2,13 +2,15 @@ package gen_go
 
 import (
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"unicode"
 )
 
 type imports struct {
-	importMap map[string]importSpec
+	// importMap map[string]importSpec
+	bundleMap BundleMaps
 	specs     []importSpec
 	used      map[string]bool // keyed on import path
 }
@@ -21,11 +23,12 @@ type importSpec struct {
 
 func newImports(
 	reserved []importSpec,
-	importMap map[string]importSpec,
+	bundleMap BundleMaps,
+	// importMap map[string]importSpec,
 ) imports {
 	im := imports{
 		used:      make(map[string]bool),
-		importMap: importMap,
+		bundleMap: bundleMap,
 	}
 	for i := range reserved {
 		spec := reserved[i]
@@ -82,14 +85,31 @@ func (i *imports) addSpec(spec importSpec) (name string) {
 }
 
 func (i *imports) addModule(module string, modulePath, midPath string) (name string) {
-	if spec, ok := i.importMap[module]; ok {
-		if i.used[spec.Path] {
-			return spec.Name
+	for _, bun := range i.bundleMap {
+		if strings.HasPrefix(module, bun.AdlModuleNamePrefix) {
+			parts := strings.Split(module, ".")
+			name := parts[len(parts)-1]
+			spec := importSpec{
+				Path:    filepath.Join(bun.GoModPath, strings.ReplaceAll(module, ".", "/")),
+				Name:    name,
+				Aliased: false,
+			}
+			if i.used[spec.Path] {
+				return spec.Name
+			}
+			spec0 := i.reserveSpec(spec)
+			i.used[spec0.Path] = true
+			return spec0.Name
 		}
-		spec0 := i.reserveSpec(spec)
-		i.used[spec0.Path] = true
-		return spec0.Name
 	}
+	// if spec, ok := i.importMap[module]; ok {
+	// 	if i.used[spec.Path] {
+	// 		return spec.Name
+	// 	}
+	// 	spec0 := i.reserveSpec(spec)
+	// 	i.used[spec0.Path] = true
+	// 	return spec0.Name
+	// }
 	if midPath != "" {
 		pkg := modulePath + "/" + midPath + "/" + strings.ReplaceAll(module, ".", "/")
 		return i.addPath(pkg)

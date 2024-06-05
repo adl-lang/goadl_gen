@@ -26,6 +26,9 @@ func MakeAll_{{$name}}{{.TypeParams.LSide}}(
 		}
 }
 
+{{if .ContainsTypeToken}}
+// struct {{$name}} contains at least one TypeToken, not generating Make_ funcs
+{{else}}
 func Make_{{$name}}{{.TypeParams.LSide}}(
 {{range .Fields}}{{if not .IsVoid}}{{if not .HasDefault}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr}},
 {{end}}{{end}}{{end -}}
@@ -47,3 +50,19 @@ func Make_{{$name}}{{.TypeParams.LSide}}(
 	return {{$G.GoValue .Annotations .TypeExpr .Just}}
 }
 {{end}}{{end}}
+{{end}}
+
+{{if .TypeTokenFields}}
+func (*{{$name}}{{.TypeParams.RSide}}) TypeTokenTexprs() map[string]map[string]{{.G.GoImport "adlast"}}TypeExpr {
+	res :=  map[string]map[string]{{.G.GoImport "adlast"}}TypeExpr{
+		{{range .TypeTokenFields -}}
+			"{{.Field.SerializedName}}": {
+				{{range .RefFields -}}
+				"{{.SerializedName}}": {{$.G.GoTexprValue .TypeExpr .Annotations}},
+				{{end}}
+			},
+		{{end}}
+	}
+	return res
+}
+{{end}}

@@ -2,7 +2,7 @@ package root
 
 import (
 	"encoding/json"
-	"log"
+	"fmt"
 	"os"
 )
 
@@ -11,7 +11,7 @@ type RootObj struct {
 	DumpConfig bool   `help:"Dump the config to stdout and exits" json:"-"`
 }
 
-func (rt RootObj) Config(in interface{}) {
+func (rt RootObj) Config(in interface{}) error {
 	if rt.Cfg != "" {
 		fd, err := os.Open(rt.Cfg)
 		// config is in its own func
@@ -23,12 +23,14 @@ func (rt RootObj) Config(in interface{}) {
 		}()
 		if err != nil {
 			cwd, _ := os.Getwd()
-			log.Fatalf("error opening file cwd:%s cfg:%s err:%v", cwd, rt.Cfg, err)
+			return fmt.Errorf("error opening file cwd:%s cfg:%s err:%v", cwd, rt.Cfg, err)
 		}
 		dec := json.NewDecoder(fd)
+		dec.DisallowUnknownFields()
 		err = dec.Decode(in)
 		if err != nil {
-			log.Fatalf("json error %v", err)
+			return err
+			// log.Fatalf("json error %v", err)
 		}
 	}
 	if rt.DumpConfig {
@@ -36,8 +38,9 @@ func (rt RootObj) Config(in interface{}) {
 		enc.SetIndent("", "  ")
 		err := enc.Encode(in)
 		if err != nil {
-			log.Fatalf("json encoding error %v", err)
+			return fmt.Errorf("json encoding error %v", err)
 		}
 		os.Exit(0)
 	}
+	return nil
 }

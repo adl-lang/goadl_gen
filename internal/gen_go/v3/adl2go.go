@@ -2,6 +2,8 @@ package gen_go
 
 import (
 	"fmt"
+	"os"
+	"runtime/debug"
 	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
@@ -46,6 +48,13 @@ func (g goTypeExpr) sansTypeParam() string {
 func (in *baseGen) GoType(
 	typeExpr adlast.TypeExpr,
 ) goTypeExpr {
+	defer func() {
+		r := recover()
+		if r != nil {
+			fmt.Fprintf(os.Stderr, "ERROR in GoType %v\n%v", r, string(debug.Stack()))
+			panic(r)
+		}
+	}()
 	_type := adlast.Handle_TypeRef(
 		typeExpr.TypeRef,
 		func(primitive string) goTypeExpr {
@@ -67,7 +76,7 @@ func (in *baseGen) GoType(
 			jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
 			gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
 			if err != nil {
-				panic(err)
+				panic(fmt.Errorf("error getting go_custom_type annotation for %v. err : %w", decl.Name, err))
 			}
 			if gct != nil {
 				pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
@@ -98,10 +107,6 @@ func (in *baseGen) GoType(
 			goTypeParams := slices.Map(typeExpr.Parameters, func(a adlast.TypeExpr) goTypeExpr {
 				return in.GoType(a)
 			})
-			// generic := ""
-			// if len(goTypeParams) > 0 {
-			// 	generic = "[" + strings.Join(slices.Map(goTypeParams, func(a goTypeExpr) string { return a.String() }), ",") + "]"
-			// }
 			return goTypeExpr{
 				Pkg:  packageName,
 				Type: ref.Name,
@@ -119,31 +124,30 @@ func (in *baseGen) GoType(
 func (in *baseGen) PrimitiveMap(
 	p string,
 	params []adlast.TypeExpr,
-) (_type goTypeExpr) {
-	// if p == "Void" {
-	// 	pkg, err := in.Import("goadl")
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// 	return goTypeExpr{"", pkg + "Void", typeParam{}, false}
-	// }
+) goTypeExpr {
 	r, has := primitiveMap[p]
 	if has {
 		return goTypeExpr{"", r, typeParam{}, false}
 	}
 	elem := in.GoType(params[0])
 	switch p {
+	case "TypeToken":
+		pkg, err := in.GoImport("adlast")
+		if err != nil {
+			panic(err)
+		}
+		tp := typeParam{
+			ps: []string{elem.String()},
+		}
+		return goTypeExpr{"", pkg + "ATypeExpr", tp, false}
 	case "Vector":
-		return goTypeExpr{"", "[]" + elem.sansTypeParam(), elem.TypeParams, elem.IsTypeParam} // "[]" + elem.String(), elem.TypeParams
+		return goTypeExpr{"", "[]" + elem.sansTypeParam(), elem.TypeParams, elem.IsTypeParam}
 	case "StringMap":
-		return goTypeExpr{"", "map[string]" + elem.sansTypeParam(), elem.TypeParams, elem.IsTypeParam} // "[]" + elem.String(), elem.TypeParams
-		// return "map[string]" + elem.String(), elem.TypeParams
+		return goTypeExpr{"", "map[string]" + elem.sansTypeParam(), elem.TypeParams, elem.IsTypeParam}
 	case "Nullable":
-		return goTypeExpr{"", "*" + elem.sansTypeParam(), elem.TypeParams, elem.IsTypeParam} // "[]" + elem.String(), elem.TypeParams
-		// return "*" + elem.String(), elem.TypeParams
+		return goTypeExpr{"", "*" + elem.sansTypeParam(), elem.TypeParams, elem.IsTypeParam}
 	}
 	panic(fmt.Errorf("no such primitive '%s'", p))
-	// return "", typeParam{}
 }
 
 var goKeywords = map[string]string{
@@ -198,6 +202,7 @@ var (
 		"ByteVector": "[]byte",
 		"Void":       "struct{}",
 		"Json":       "any",
+		// "TypeToken":  "struct{}",
 		// "`Vector<T>`":    0,
 		// "`StringMap<T>`": 0,
 		// "`Nullable<T>`":  0,
