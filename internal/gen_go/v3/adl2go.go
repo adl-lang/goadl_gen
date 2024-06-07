@@ -100,6 +100,14 @@ func (in *baseGen) GoType(
 				}
 			}
 
+			if typ, ok := decl.Type_.Cast_type_(); ok {
+				if len(typ.TypeParams) != 0 {
+					tbind := goadl.CreateDecBoundTypeParams(typ.TypeParams, typeExpr.Parameters)
+					monoTe, _ := goadl.SubstituteTypeBindings(tbind, typ.TypeExpr)
+					return in.GoType(monoTe)
+				}
+			}
+
 			packageName := ""
 			if in.moduleName != ref.ModuleName {
 				packageName = in.imports.addModule(ref.ModuleName, in.modulePath, in.midPath)

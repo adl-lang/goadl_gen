@@ -151,7 +151,7 @@ func (bg *goval_gen) goValue(
 				},
 				func(newtype_ adlast.NewType) string {
 					monoTe, _ := goadl.SubstituteTypeBindings(tbind, newtype_.TypeExpr)
-					return bg.goValue(decl.Annotations, monoTe, val)
+					return fmt.Sprintf("%s(\n%s,\n)", gt, bg.goValue(decl.Annotations, monoTe, val))
 				},
 				nil,
 			)

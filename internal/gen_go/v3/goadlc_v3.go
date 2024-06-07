@@ -314,17 +314,6 @@ func (in *goadlcCmd) generate(
 		panic(fmt.Errorf("%v", sn.ModuleName))
 	}
 
-	// typetoken_flds := func(sn adlast.ScopedName, tbind []goadl.TypeBinding) []adlast.Field {
-	// 	decl, ok := resolver(sn)
-	// 	if !ok {
-	// 		panic(fmt.Errorf("missing decl %v", sn))
-	// 	}
-	// 	if str, ok := decl.Type_.Cast_struct_(); ok {
-	// 		return getTypeToken(str, tbind)
-	// 	}
-	// 	return []adlast.Field{}
-	// }
-
 	for _, m := range modules {
 		modCodeGenDir := strings.Split(m.name, ".")
 		// modCodeGenPkg := pkgFromImport(strings.ReplaceAll(m.name, ".", "/"))
@@ -598,6 +587,12 @@ func (base *baseGen) generalDeclV3(
 			return nil
 		},
 		func(td adlast.TypeDef) any {
+			if typ, ok := decl.Type_.Cast_type_(); ok {
+				if len(typ.TypeParams) != 0 {
+					// in go "type X<A any> = ..." isn't valid, skipping
+					return nil
+				}
+			}
 			in.rr.Render(typeAliasParams{
 				G:          in,
 				Name:       decl.Name,
@@ -623,6 +618,12 @@ func (base *baseGen) generalTexpr(
 	body *generator,
 	decl adlast.Decl,
 ) {
+	if typ, ok := decl.Type_.Cast_type_(); ok {
+		if len(typ.TypeParams) != 0 {
+			// in go "type X<A any> = ..." isn't valid, skipping
+			return
+		}
+	}
 	type_name := decl.Name
 	tp := typeParamsFromDecl(decl)
 
