@@ -250,13 +250,13 @@ func (bg *goval_gen) goStruct(
 	gt goTypeExpr,
 	val any,
 ) string {
-	m := val.(map[string]any)
+	mval := val.(map[string]any)
 	ret := slices.FlatMap[adlast.Field, string](struct_.Fields, func(fld adlast.Field) []string {
 		bg.path = append(bg.path, fld.Name)
 		ret := []string{}
 		if bg.genAdlAst && fld.Name == "annotations" {
 			bg.GoImport("customtypes")
-			anns := m[fld.SerializedName].([]any)
+			anns := mval[fld.SerializedName].([]any)
 			annvs := []string{}
 			for _, mapEntry := range anns {
 				ann := mapEntry.(map[string]any)
@@ -271,17 +271,18 @@ func (bg *goval_gen) goStruct(
 					annvs = append(annvs, fmt.Sprintf(`adlast.Make_ScopedName("%s", "%s"): %+#v`, mn, na, v))
 				}
 			}
+			// sort so there is a determistic order for generated AST code
+			sort.Strings(annvs)
 			ret = append(ret, fmt.Sprintf(`customtypes.MapMap[adlast.ScopedName, any]{%s}`, strings.Join(annvs, ",")))
-			// ret = append(ret, fmt.Sprintf(`%s: customtypes.MapMap[adlast.ScopedName, any]{%s}`, public(fld.Name), strings.Join(annvs, ",")))
 			return ret
 		}
-		if v, ok := m[fld.SerializedName]; ok {
+		if v, ok := mval[fld.SerializedName]; ok {
 			monoTe, _ := goadl.SubstituteTypeBindings(tbind, fld.TypeExpr)
 			fgv := bg.goValue(fld.Annotations, monoTe, v)
 			ret = append(ret, fgv)
 			// ret = append(ret, fmt.Sprintf(`%s: %s`, public(fld.Name), fgv))
 		}
-		if _, ok := m[fld.SerializedName]; !ok {
+		if _, ok := mval[fld.SerializedName]; !ok {
 			types.Handle_Maybe[any, any](
 				fld.Default,
 				func(nothing struct{}) any {
