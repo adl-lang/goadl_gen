@@ -5,6 +5,7 @@ go 1.22.1
 require (
 	github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.4
 	github.com/jpillora/opts v1.2.3
+	github.com/mattn/go-zglob v0.0.4
 	golang.org/x/mod v0.17.0
 )
 

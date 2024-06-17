@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"go/format"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	goslices "slices"
+	"sort"
 	"strings"
+
+	"github.com/mattn/go-zglob"
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
@@ -193,19 +195,13 @@ func (in *goadlcCmd) setup() (
 	// 	}
 	// }
 
-	cwd, err := os.Getwd()
-	fmt.Fprintf(os.Stderr, "Getwd %v\n", cwd)
-	dFs := os.DirFS(cwd)
-	if err != nil {
-		setupErr = fmt.Errorf("can't get cwd : %v", err)
-		return
-	}
 	if len(in.Files) == 0 {
 		setupErr = fmt.Errorf("no file or pattern specified")
 		return
 	}
 	for _, p := range in.Files {
-		matchs, err := fs.Glob(dFs, p)
+		matchs, err := zglob.Glob(p)
+		sort.Strings(matchs)
 		if err != nil {
 			setupErr = fmt.Errorf("error globbing file : %v", err)
 			return

@@ -1,11 +1,15 @@
 github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.1 h1:tVmY2QVD3lfWzoqMxsdpDWjJNX/N+51xScwoSanKRZc=
 github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.1/go.mod h1:OTKpMzWp6Wcau9RBvjMmkvADMoI9azo/xocnh+4f38k=
+github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.4 h1:soBbr9qSL+I3QIO37akOCV98sBVq66BlbCV+KeEFO+8=
+github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.4/go.mod h1:OTKpMzWp6Wcau9RBvjMmkvADMoI9azo/xocnh+4f38k=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-multierror v1.0.0 h1:iVjPR7a6H0tWELX5NxNe7bYopibicUzc7uPribsnS6o=
 github.com/hashicorp/go-multierror v1.0.0/go.mod h1:dHtQlpGsu+cZNNAkkCN/P3hoUDHhCYQXV3UM06sGGrk=
 github.com/jpillora/opts v1.2.3 h1:Q0YuOM7y0BlunHJ7laR1TUxkUA7xW8A2rciuZ70xs8g=
 github.com/jpillora/opts v1.2.3/go.mod h1:7p7X/vlpKZmtaDFYKs956EujFqA6aCrOkcCaS6UBcR4=
+github.com/mattn/go-zglob v0.0.4 h1:LQi2iOm0/fGgu80AioIJ/1j9w9Oh+9DZ39J4VAGzHQM=
+github.com/mattn/go-zglob v0.0.4/go.mod h1:MxxjyoXXnMxfIpxTK2GAkw1w8glPsQILx3N5wrKakiY=
 github.com/posener/complete v1.2.2-0.20190308074557-af07aa5181b3 h1:GqpA1/5oN1NgsxoSA4RH0YWTaqvUlQNeOpHXD/JRbOQ=
 github.com/posener/complete v1.2.2-0.20190308074557-af07aa5181b3/go.mod h1:6gapUrK/U1TAN7ciCoNRIdVC5sbdBTUh1DKN0g6uH7E=
 golang.org/x/mod v0.17.0 h1:zY54UmvipHiNd+pm+m0x9KhZ9hl1/7QNMyxXbc6ICqA=
