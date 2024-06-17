@@ -1,9 +1,11 @@
 package gen_go
 
 import (
+	"archive/zip"
 	"fmt"
 	"go/format"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	goslices "slices"
@@ -80,6 +82,7 @@ type BundleMap struct {
 	GoModPath           string
 	AdlSrc              string
 	GoModVersion        *string
+	Path                *string
 }
 
 func (ims *BundleMaps) Set(text string) error {
@@ -152,6 +155,94 @@ func (in *goadlcCmd) Run() error {
 	return in.generate(in.setup())
 }
 
+func (in *goadlcCmd) zippedBundle(bm BundleMap) (string, error) {
+	path := bm.AdlSrc[len("https://"):strings.LastIndex(bm.AdlSrc, "/")]
+	file := bm.AdlSrc[strings.LastIndex(bm.AdlSrc, "/"):]
+	zipdir := filepath.Join(in.UserCacheDir, "download", path)
+	zipfile := filepath.Join(zipdir, file)
+	if _, err := os.Stat(zipfile); err != nil {
+		if err := os.MkdirAll(zipdir, 0777); err != nil {
+			return "", fmt.Errorf("error creating dir for zip adlsrc '%s' err: %w", zipdir, err)
+		}
+		if in.Debug {
+			fmt.Fprintf(os.Stderr, "created zip download dir '%s'\n", zipdir)
+		}
+		file, err := os.Create(zipfile)
+		if err != nil {
+			return "", err
+		}
+		defer file.Close()
+		resp, err := http.Get(bm.AdlSrc)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("bad status: %s", resp.Status)
+		}
+		_, err = io.Copy(file, resp.Body)
+		if err != nil {
+			return "", err
+		}
+		zarch, err := zip.OpenReader(zipfile)
+		if err != nil {
+			return "", err
+		}
+		if in.Debug {
+			fmt.Printf("Unzipping %v\n", zipfile)
+		}
+
+		cachePath := bm.AdlSrc[len("https://") : len(bm.AdlSrc)-len(".zip")]
+		cacheDir := filepath.Join(in.UserCacheDir, "cache", cachePath)
+		if err := os.MkdirAll(cacheDir, 0777); err != nil {
+			return "", fmt.Errorf("error creating dir for cache adlsrc '%s' err: %w", cacheDir, err)
+		}
+		for _, zf := range zarch.File {
+			if zf.FileInfo().IsDir() {
+				continue
+			}
+			name := zf.Name[strings.Index(zf.Name, "/")+1:]
+			if in.Debug {
+				fmt.Printf("  %v\n", name)
+			}
+			dst := filepath.Join(cacheDir, name)
+			if err := os.MkdirAll(filepath.Dir(dst), 0777); err != nil {
+				return "", err
+			}
+			w, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0444)
+			if err != nil {
+				return "", err
+			}
+			r, err := zf.Open()
+			if err != nil {
+				w.Close()
+				return "", err
+			}
+			lr := &io.LimitedReader{R: r, N: int64(zf.UncompressedSize64) + 1}
+			_, err = io.Copy(w, lr)
+			r.Close()
+			if err != nil {
+				w.Close()
+				return "", err
+			}
+			if err := w.Close(); err != nil {
+				return "", err
+			}
+			if lr.N <= 0 {
+				return "", fmt.Errorf("uncompressed size of file %s is larger than declared size (%d bytes)", zf.Name, zf.UncompressedSize64)
+			}
+		}
+		return cacheDir, nil
+	}
+
+	if in.Debug {
+		fmt.Fprintf(os.Stderr, "cached zip  '%s'\n", zipfile)
+	}
+	cachePath := bm.AdlSrc[len("https://") : len(bm.AdlSrc)-len(".zip")]
+	cacheDir := filepath.Join(in.UserCacheDir, "cache", cachePath)
+	return cacheDir, nil
+}
+
 func (in *goadlcCmd) setup() (
 	combinedAst map[string]adlast.Module,
 	// importMap map[string]importSpec,
@@ -177,6 +268,18 @@ func (in *goadlcCmd) setup() (
 	for _, bm := range in.BundleMap {
 		if strings.HasPrefix(bm.AdlSrc, "file://") {
 			in.Searchdir = append(in.Searchdir, bm.AdlSrc[len("file://"):])
+		}
+		if strings.HasPrefix(bm.AdlSrc, "https://") && strings.HasSuffix(bm.AdlSrc, ".zip") {
+			path, err := in.zippedBundle(bm)
+			if err != nil {
+				setupErr = err
+				return
+			}
+			if bm.Path != nil {
+				in.Searchdir = append(in.Searchdir, filepath.Join(path, *bm.Path))
+			} else {
+				in.Searchdir = append(in.Searchdir, path)
+			}
 		}
 		// if bm.AdlSrc == "adlstdlib" {
 		// }
