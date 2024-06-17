@@ -1,7 +1,5 @@
-github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.1 h1:tVmY2QVD3lfWzoqMxsdpDWjJNX/N+51xScwoSanKRZc=
-github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.1/go.mod h1:OTKpMzWp6Wcau9RBvjMmkvADMoI9azo/xocnh+4f38k=
-github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.4 h1:soBbr9qSL+I3QIO37akOCV98sBVq66BlbCV+KeEFO+8=
-github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.4/go.mod h1:OTKpMzWp6Wcau9RBvjMmkvADMoI9azo/xocnh+4f38k=
+github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.5 h1:DdePq5dRTr/XsPp0k70SoBFcshj4hhzk/yqiLBWO67w=
+github.com/adl-lang/goadl_rt/v3 v3.0.0-alpha.5/go.mod h1:OTKpMzWp6Wcau9RBvjMmkvADMoI9azo/xocnh+4f38k=
 github.com/hashicorp/errwrap v1.0.0 h1:hLrqtEDnRye3+sgx6z4qVLNuviH3MR5aQ0ykNJa/UYA=
 github.com/hashicorp/errwrap v1.0.0/go.mod h1:YH+1FKiLXxHSkmPseP+kNlulaMuP3n2brvKWEqk/Jc4=
 github.com/hashicorp/go-multierror v1.0.0 h1:iVjPR7a6H0tWELX5NxNe7bYopibicUzc7uPribsnS6o=
