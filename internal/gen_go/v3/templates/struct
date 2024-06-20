@@ -51,18 +51,3 @@ func Make_{{$name}}{{.TypeParams.LSide}}(
 }
 {{end}}{{end}}
 {{end}}
-
-{{if .TypeTokenFields}}
-func (*{{$name}}{{.TypeParams.RSide}}) TypeTokenTexprs() map[string]map[string]{{.G.GoImport "adlast"}}TypeExpr {
-	res :=  map[string]map[string]{{.G.GoImport "adlast"}}TypeExpr{
-		{{range .TypeTokenFields -}}
-			"{{.Field.SerializedName}}": {
-				{{range .RefFields -}}
-				"{{.SerializedName}}": {{$.G.GoTexprValue .TypeExpr .Annotations}},
-				{{end}}
-			},
-		{{end}}
-	}
-	return res
-}
-{{end}}

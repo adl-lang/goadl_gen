@@ -103,13 +103,7 @@ type structParams struct {
 	Name              string
 	TypeParams        typeParam
 	Fields            []fieldParams
-	TypeTokenFields   []typeTokenField
 	ContainsTypeToken bool
-}
-
-type typeTokenField struct {
-	Field     adlast.Field
-	RefFields []adlast.Field
 }
 
 type unionParams struct {
