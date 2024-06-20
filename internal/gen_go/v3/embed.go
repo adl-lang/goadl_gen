@@ -123,9 +123,10 @@ type fieldParams struct {
 }
 
 type typeAliasParams struct {
-	G          *generator
-	Name       string
-	TypeParams typeParam
-	TypeExpr   adlast.TypeExpr
+	G           *generator
+	Name        string
+	TypeParams  typeParam
+	TypeExpr    adlast.TypeExpr
+	Annotations adlast.Annotations
 }
 type newTypeParams typeAliasParams

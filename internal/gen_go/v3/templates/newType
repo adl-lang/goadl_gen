@@ -1,2 +1,2 @@
 {{$G := .G}}
-type {{.Name|public}}{{.TypeParams.LSide}} {{$G.GoType .TypeExpr}}
+type {{.Name|public}}{{.TypeParams.LSide}} {{$G.GoType .TypeExpr .Annotations}}

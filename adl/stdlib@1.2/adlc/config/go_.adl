@@ -26,6 +26,14 @@ struct GoType {
     String import_path;
 };
 
+type TypeParamConstraintMap = Vector<TypeParamConstraintPair>;
+type TypeParamConstraintList = Vector<String>;
+
+struct TypeParamConstraintPair {
+    String typeparam;
+    String constraint;
+};
+
 struct GoHelperType {
     String name;
     String pkg;

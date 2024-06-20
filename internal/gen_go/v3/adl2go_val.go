@@ -126,7 +126,7 @@ func (bg *goval_gen) goValue(
 			// panic("unbound typeParam " + typeParam)
 		},
 		func(ref adlast.ScopedName) string {
-			gt := bg.GoType(te)
+			gt := bg.GoType(te, anns)
 			decl, ok := bg.resolver(ref)
 			if !ok {
 				panic(fmt.Errorf("cannot resolve %v", ref))
@@ -423,7 +423,7 @@ func (bg *goval_gen) goValuePrimitive(
 			panic(err)
 		}
 		// return bg.GoTexprValue(te.Parameters[0], anns)
-		gt := bg.GoType(te.Parameters[0])
+		gt := bg.GoType(te.Parameters[0], anns)
 		return fmt.Sprintf("%sMake_ATypeExpr[%s](%s)", pkg, gt, bg.GoTexprValue(te.Parameters[0], anns))
 	case "Int8", "Int16", "Int32", "Int64",
 		"Word8", "Word16", "Word32", "Word64",
@@ -449,10 +449,10 @@ func (bg *goval_gen) goValuePrimitive(
 			vs[i] = bg.goValue(anns, te.Parameters[0], v.Interface())
 		}
 		if len(vs) == 0 {
-			return fmt.Sprintf("[]%s{}", bg.GoType(te.Parameters[0]))
+			return fmt.Sprintf("[]%s{}", bg.GoType(te.Parameters[0], anns))
 		}
 		vss := strings.Join(vs, ",\n")
-		return fmt.Sprintf("[]%s{\n%s,\n}", bg.GoType(te.Parameters[0]), vss)
+		return fmt.Sprintf("[]%s{\n%s,\n}", bg.GoType(te.Parameters[0], anns), vss)
 	case "StringMap":
 		m := val.(map[string]any)
 		vs := make(kvBy, 0, len(m))
@@ -460,10 +460,10 @@ func (bg *goval_gen) goValuePrimitive(
 			vs = append(vs, kv{k, bg.goValue(anns, te.Parameters[0], v)})
 		}
 		if len(vs) == 0 {
-			return fmt.Sprintf("map[string]%s{}", bg.GoType(te.Parameters[0]))
+			return fmt.Sprintf("map[string]%s{}", bg.GoType(te.Parameters[0], anns))
 		}
 		sort.Sort(vs)
-		return fmt.Sprintf("map[string]%s{\n%s,\n}", bg.GoType(te.Parameters[0]), vs)
+		return fmt.Sprintf("map[string]%s{\n%s,\n}", bg.GoType(te.Parameters[0], anns), vs)
 	case "Nullable":
 		if val == nil {
 			return "nil"

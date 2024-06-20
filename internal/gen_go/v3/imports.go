@@ -78,7 +78,6 @@ func (i *imports) byName(name string) (spec importSpec, ok bool) {
 }
 
 func (i *imports) addSpec(spec importSpec) (name string) {
-	fmt.Printf("adding %v\n", spec)
 	spec0 := i.reserveSpec(spec)
 	i.used[spec0.Path] = true
 	return spec0.Name

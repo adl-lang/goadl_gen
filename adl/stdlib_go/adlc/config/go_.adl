@@ -32,4 +32,8 @@ struct GoHelperType {
     String import_path;
 };
 
+// This is an internal type used by the code generator to propogate GoType::type_constraints.
+// During code gen decls, fields and braches are annotated to match type_constraints specified on custom types.
+type TypeParamConstraintList = Vector<String>;
+
 };

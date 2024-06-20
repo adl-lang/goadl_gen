@@ -632,45 +632,19 @@ func (base *baseGen) generalDeclV3(
 	in *generator,
 	decl adlast.Decl,
 ) {
+	typeParams := typeParamsFromDecl(decl)
 	adlast.Handle_DeclType[any](
 		decl.Type_,
 		func(s adlast.Struct) any {
 
-			typeTokenFields := []typeTokenField{}
-			for _, fld := range s.Fields {
-				if ref, ok := fld.TypeExpr.TypeRef.Cast_reference(); ok {
-					decl1, ok := in.resolver(ref)
-					if !ok {
-						panic(fmt.Errorf("missing decl %v", ref))
-					}
-					if str, ok := decl1.Type_.Cast_struct_(); ok {
-						tbind := goadl.CreateDecBoundTypeParams(goadl.TypeParamsFromDecl(*decl1), fld.TypeExpr.Parameters)
-						refFields, concrete := getTypeToken(str, tbind)
-						if !concrete {
-							in.rr.buf.Write([]byte(fmt.Sprintf("// %s::%s Type Param is passed through to a TypeToken, not generating TypeTokenTexprs method\n", decl.Name, fld.Name)))
-							typeTokenFields = []typeTokenField{}
-							break
-						}
-						if len(refFields) != 0 {
-							typeTokenFields = append(typeTokenFields, typeTokenField{
-								Field:     fld,
-								RefFields: refFields,
-							})
-						}
-					}
-				}
-			}
 			in.rr.Render(structParams{
 				G:          in,
 				Name:       decl.Name,
-				TypeParams: typeParam{s.TypeParams, []string{}, false, base.cli.StdLibGen},
+				TypeParams: typeParams,
 				Fields: slices.Map(s.Fields, func(f adlast.Field) fieldParams {
 					return makeFieldParam(f, decl.Name, in)
 				}),
-				TypeTokenFields:   typeTokenFields,
 				ContainsTypeToken: containsTypeToken(s),
-				// ContainsTypeToken: containsTypeToken(s),
-				// RefToTypeToken:    refs_typetoken,
 			})
 			return nil
 		},
@@ -678,7 +652,7 @@ func (base *baseGen) generalDeclV3(
 			in.rr.Render(unionParams{
 				G:          in,
 				Name:       decl.Name,
-				TypeParams: typeParam{u.TypeParams, []string{}, false, base.cli.StdLibGen},
+				TypeParams: typeParams,
 				Branches: slices.Map[adlast.Field, fieldParams](u.Fields, func(f adlast.Field) fieldParams {
 					return makeFieldParam(f, decl.Name, in)
 				}),
@@ -693,19 +667,21 @@ func (base *baseGen) generalDeclV3(
 				}
 			}
 			in.rr.Render(typeAliasParams{
-				G:          in,
-				Name:       decl.Name,
-				TypeParams: typeParam{td.TypeParams, []string{}, false, base.cli.StdLibGen},
-				TypeExpr:   td.TypeExpr,
+				G:           in,
+				Name:        decl.Name,
+				TypeParams:  typeParams,
+				TypeExpr:    td.TypeExpr,
+				Annotations: decl.Annotations,
 			})
 			return nil
 		},
 		func(nt adlast.NewType) any {
 			in.rr.Render(newTypeParams{
-				G:          in,
-				Name:       decl.Name,
-				TypeParams: typeParam{nt.TypeParams, []string{}, false, base.cli.StdLibGen},
-				TypeExpr:   nt.TypeExpr,
+				G:           in,
+				Name:        decl.Name,
+				TypeParams:  typeParams,
+				TypeExpr:    nt.TypeExpr,
+				Annotations: decl.Annotations,
 			})
 			return nil
 		},
@@ -743,7 +719,7 @@ func (base *baseGen) generalTexpr(
 		tp.type_constraints = gct.Gotype.Type_constraints
 	}
 
-	tp.stdlib = base.cli.StdLibGen
+	// tp.stdlib = base.cli.StdLibGen
 	body.rr.Render(aTexprParams{
 		G:          body,
 		ModuleName: base.moduleName,
@@ -790,8 +766,6 @@ func makeFieldParam(
 			}
 		},
 		func(just any) fieldParams {
-			// fmt.Printf("???????1 %v\n", reflect.TypeOf(just))
-			// val := reflect.ValueOf(just).Interface()
 			return fieldParams{
 				Field:      f,
 				DeclName:   declName,
