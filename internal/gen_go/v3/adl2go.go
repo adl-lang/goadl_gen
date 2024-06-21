@@ -8,7 +8,6 @@ import (
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
-	"github.com/adl-lang/goadlc/internal/gen_go/fn/slices"
 	"github.com/samber/lo"
 )
 
@@ -115,7 +114,7 @@ func (in *baseGen) goType(
 			if in.moduleName != ref.ModuleName {
 				packageName = in.imports.addModule(ref.ModuleName, in.modulePath, in.midPath)
 			}
-			goTypeParams := slices.Map(typeExpr.Parameters, func(a adlast.TypeExpr) goTypeExpr {
+			goTypeParams := lo.Map(typeExpr.Parameters, func(a adlast.TypeExpr, _ int) goTypeExpr {
 				return in.goType(a, unionTypeParams, anns)
 			})
 
@@ -123,7 +122,7 @@ func (in *baseGen) goType(
 				Pkg:  packageName,
 				Type: ref.Name,
 				TypeParams: typeParam{
-					params:           slices.Map(goTypeParams, func(a goTypeExpr) param { return param{name: a.String(), concrete: !a.IsTypeParam} }),
+					params:           lo.Map(goTypeParams, func(a goTypeExpr, _ int) param { return param{name: a.String(), concrete: !a.IsTypeParam} }),
 					type_constraints: get_type_constraints(anns),
 				},
 				IsTypeParam: false,
@@ -168,7 +167,7 @@ func (in *baseGen) gotype_ref_customtype(
 		Pkg:  gct.Gotype.Pkg,
 		Type: gct.Gotype.Name,
 		TypeParams: typeParam{
-			params: slices.Map(typeExpr.Parameters, func(a adlast.TypeExpr) param {
+			params: lo.Map(typeExpr.Parameters, func(a adlast.TypeExpr, _ int) param {
 				pt := in.goType(a, unionTypeParams, anns)
 				return param{pt.String(), !pt.IsTypeParam}
 			}),

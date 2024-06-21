@@ -8,7 +8,6 @@ import (
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
-	"github.com/adl-lang/goadlc/internal/gen_go/fn/slices"
 	"github.com/samber/lo"
 )
 
@@ -113,7 +112,7 @@ func (tp typeParam) LSide() string {
 	if len(tp.params) == 0 {
 		return ""
 	}
-	names := slices.MapI[param, string](tp.params, func(a param, i int) string { return a.name })
+	names := lo.Map[param, string](tp.params, func(a param, i int) string { return a.name })
 	return "[" + strings.Join(lo.Map(names, func(e string, i int) string {
 		if i+1 <= len(tp.type_constraints) {
 			return e + " " + tp.type_constraints[i]
@@ -125,22 +124,22 @@ func (tp typeParam) RSide() string {
 	if len(tp.params) == 0 {
 		return ""
 	}
-	names := slices.MapI[param, string](tp.params, func(a param, i int) string { return a.name })
+	names := lo.Map[param, string](tp.params, func(a param, i int) string { return a.name })
 	return "[" + strings.Join(names, ",") + "]"
 }
 func (tp typeParam) TexprArgs() string {
 	if len(tp.params) == 0 {
 		return ""
 	}
-	names := slices.MapI[param, string](tp.params, func(a param, i int) string { return a.name })
-	return strings.Join(slices.Map(names, func(e string) string { return fmt.Sprintf("%s adlast.ATypeExpr[%s]", strings.ToLower(e), e) }), ", ")
+	names := lo.Map[param, string](tp.params, func(a param, i int) string { return a.name })
+	return strings.Join(lo.Map(names, func(e string, _ int) string { return fmt.Sprintf("%s adlast.ATypeExpr[%s]", strings.ToLower(e), e) }), ", ")
 }
 func (tp typeParam) TexprValues() string {
 	if len(tp.params) == 0 {
 		return ""
 	}
-	names := slices.MapI[param, string](tp.params, func(a param, i int) string { return a.name })
-	return strings.Join(slices.Map(names, func(e string) string { return fmt.Sprintf("%s.Value", strings.ToLower(e)) }), ", ")
+	names := lo.Map[param, string](tp.params, func(a param, i int) string { return a.name })
+	return strings.Join(lo.Map(names, func(e string, _ int) string { return fmt.Sprintf("%s.Value", strings.ToLower(e)) }), ", ")
 }
 
 func (tp typeParam) TpArgs() string {
