@@ -6,11 +6,13 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+
+	"github.com/adl-lang/goadlc/internal/gen_go/load"
 )
 
 type imports struct {
 	// importMap map[string]importSpec
-	bundleMap BundleMaps
+	bundleMap load.BundleMaps
 	specs     []importSpec
 	used      map[string]bool // keyed on import path
 }
@@ -23,7 +25,7 @@ type importSpec struct {
 
 func newImports(
 	reserved []importSpec,
-	bundleMap BundleMaps,
+	bundleMap load.BundleMaps,
 	// importMap map[string]importSpec,
 ) imports {
 	im := imports{

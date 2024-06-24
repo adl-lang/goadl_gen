@@ -7,8 +7,9 @@ import (
 )
 
 type RootObj struct {
+	Debug      bool   `help:"Print extra diagnostic information, especially about files being read/written"`
 	Cfg        string `help:"Config file in json format (NOTE file entries take precedence over command-line flags & env)" json:"-"`
-	DumpConfig bool   `help:"Dump the config to stdout and exits" json:"-"`
+	DumpConfig bool   `opts:"short=u" help:"Dump the config to stdout and exits" json:"-"`
 }
 
 func (rt RootObj) Config(in interface{}) error {

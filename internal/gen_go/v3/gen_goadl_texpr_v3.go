@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"os"
 	"text/template"
-
-	"github.com/jpillora/opts"
 )
 
-func NewGenTypeExprV3() opts.Opts {
-	return opts.New(&texprV2Cmd{})
+func NewGenTypeExprV3() any {
+	return &texprV2Cmd{}
 }
 
 type texprV2Cmd struct {

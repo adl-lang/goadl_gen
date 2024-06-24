@@ -1,17 +1,20 @@
 {
-  "Searchdir": [
-    "adl/stdlib_go"
-  ],
-  "Outputdir": "../goadl_rt/v3",
-  "MergeAdlext": "adl-go",
-  "Debug": true,
+  "Loader": {
+    "Searchdir": [
+      "adl/stdlib_go"
+    ],
+    "MergeAdlext": "adl-go",
+    "Files": [
+      "adl/stdlib_go/**/*.adl"
+    ]
+  },
+  "GoMod": {
+    "ModulePath": "",
+    "GoModFile": "",
+    "Outputdir": "../goadl_rt/v3"
+  },
   "NoGoFmt": false,
   "GoAdlPath": "github.com/adl-lang/goadl_rt/v3",
-  "ModulePath": "",
-  "GoModFile": "",
   "ExcludeAst": false,
-  "StdLibGen": true,
-  "Files": [
-    "adl/stdlib_go/**/*.adl"
-  ]
+  "StdLibGen": true
 }
