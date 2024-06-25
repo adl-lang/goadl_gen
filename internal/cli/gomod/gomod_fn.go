@@ -12,8 +12,9 @@ import (
 func (in *GoModule) Modpath(debug bool) (*GoModResult, error) {
 	return HandleWithErr_GoModule[*GoModResult](
 		*in,
-		func(modulePath string) (*GoModResult, error) {
-			return goadl.Addr(Make_GoModResult(modulePath, "")), nil
+		func(modulePath GoModResult) (*GoModResult, error) {
+			return &modulePath, nil
+			// return goadl.Addr(Make_GoModResult(modulePath, "")), nil
 		},
 		func(goModFile string) (*GoModResult, error) {
 			return fromGoModFile(goModFile, debug)
@@ -51,7 +52,6 @@ func (in *GoModule) Modpath(debug bool) (*GoModResult, error) {
 			if err != nil {
 				return nil, err
 			}
-			res.MidPath = midPath
 			return res, nil
 		},
 		func() (*GoModResult, error) {
@@ -71,7 +71,8 @@ func fromGoModFile(goModFile string, debug bool) (*GoModResult, error) {
 			if debug {
 				fmt.Fprintf(os.Stderr, "using module-path found in go.mod file. module-path:%s\n", modulePath)
 			}
-			return goadl.Addr(Make_GoModResult(modulePath, "")), nil
+			rootDir := filepath.Dir(goModFile)
+			return goadl.Addr(Make_GoModResult(modulePath, rootDir)), nil
 		} else {
 			return nil, fmt.Errorf("module-path needed. Not specified in --module-path and couldn't be found in a go.mod file")
 		}

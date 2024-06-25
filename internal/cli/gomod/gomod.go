@@ -11,29 +11,29 @@ type GoModResult struct {
 
 type _GoModResult struct {
 	ModulePath string `json:"ModulePath"`
-	MidPath    string `json:"MidPath"`
+	RootDir    string `json:"RootDir"`
 }
 
 func MakeAll_GoModResult(
 	modulepath string,
-	midpath string,
+	rootdir string,
 ) GoModResult {
 	return GoModResult{
 		_GoModResult{
 			ModulePath: modulepath,
-			MidPath:    midpath,
+			RootDir:    rootdir,
 		},
 	}
 }
 
 func Make_GoModResult(
 	modulepath string,
-	midpath string,
+	rootdir string,
 ) GoModResult {
 	ret := GoModResult{
 		_GoModResult{
 			ModulePath: modulepath,
-			MidPath:    midpath,
+			RootDir:    rootdir,
 		},
 	}
 	return ret
@@ -60,7 +60,7 @@ func (*GoModule) MakeNewBranch(key string) (any, error) {
 }
 
 type _GoModule_ModulePath struct {
-	V string `branch:"ModulePath"`
+	V GoModResult `branch:"ModulePath"`
 }
 type _GoModule_GoModFile struct {
 	V string `branch:"GoModFile"`
@@ -73,7 +73,7 @@ func (_GoModule_ModulePath) isGoModuleBranch() {}
 func (_GoModule_GoModFile) isGoModuleBranch()  {}
 func (_GoModule_Outputdir) isGoModuleBranch()  {}
 
-func Make_GoModule_ModulePath(v string) GoModule {
+func Make_GoModule_ModulePath(v GoModResult) GoModule {
 	return GoModule{
 		_GoModule_ModulePath{v},
 	}
@@ -91,7 +91,7 @@ func Make_GoModule_Outputdir(v string) GoModule {
 	}
 }
 
-func (un GoModule) Cast_ModulePath() (string, bool) {
+func (un GoModule) Cast_ModulePath() (GoModResult, bool) {
 	br, ok := un.Branch.(_GoModule_ModulePath)
 	return br.V, ok
 }
@@ -108,7 +108,7 @@ func (un GoModule) Cast_Outputdir() (string, bool) {
 
 func Handle_GoModule[T any](
 	_in GoModule,
-	ModulePath func(ModulePath string) T,
+	ModulePath func(ModulePath GoModResult) T,
 	GoModFile func(GoModFile string) T,
 	Outputdir func(Outputdir string) T,
 	_default func() T,
@@ -135,7 +135,7 @@ func Handle_GoModule[T any](
 
 func HandleWithErr_GoModule[T any](
 	_in GoModule,
-	ModulePath func(ModulePath string) (T, error),
+	ModulePath func(ModulePath GoModResult) (T, error),
 	GoModFile func(GoModFile string) (T, error),
 	Outputdir func(Outputdir string) (T, error),
 	_default func() (T, error),

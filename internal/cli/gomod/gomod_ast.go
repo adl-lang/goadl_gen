@@ -39,8 +39,8 @@ func AST_GoModResult() adlast.ScopedDecl {
 						customtypes.MapMap[adlast.ScopedName, any]{},
 					),
 					adlast.MakeAll_Field(
-						"MidPath",
-						"MidPath",
+						"RootDir",
+						"RootDir",
 						adlast.MakeAll_TypeExpr(
 							adlast.Make_TypeRef_primitive(
 								"String",
@@ -87,8 +87,11 @@ func AST_GoModule() adlast.ScopedDecl {
 						"ModulePath",
 						"ModulePath",
 						adlast.MakeAll_TypeExpr(
-							adlast.Make_TypeRef_primitive(
-								"String",
+							adlast.Make_TypeRef_reference(
+								adlast.MakeAll_ScopedName(
+									"cli.gomod",
+									"GoModResult",
+								),
 							),
 							[]adlast.TypeExpr{},
 						),

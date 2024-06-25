@@ -2,7 +2,7 @@ module cli.gomod {
 
 union GoModule {
     /// The path of the Go module for the generated code.
-    String ModulePath;
+    GoModResult ModulePath;
     /// Path of a go.mod file
     String GoModFile;
     /// Used to find the go.mod file and calculate the codes module-path and sub-dir of generated code
@@ -11,7 +11,7 @@ union GoModule {
 
 struct GoModResult {
     String ModulePath;
-    String MidPath;
+    String RootDir;
 };
 
 };

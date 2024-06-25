@@ -80,13 +80,27 @@ func thunk_gen_module(
 	fn := func() error {
 		modCodeGenDir := strings.Split(m.Name, ".")
 		modCodeGenPkg := modCodeGenDir[len(modCodeGenDir)-1]
+
+		oabs, err1 := filepath.Abs(in.Outputdir)
+		rabs, err2 := filepath.Abs(gm.RootDir)
+		if err1 != nil || err2 != nil {
+			return fmt.Errorf("error get abs dir %w %w", err1, err2)
+		}
+		if !strings.HasPrefix(oabs, rabs) {
+			return fmt.Errorf("output dir must be inside root of go.mod out: %s root: %s", oabs, rabs)
+		}
+		midPath := oabs[len(rabs):]
+		if in.Root.Debug {
+			fmt.Fprintf(os.Stderr, "midpath '%s'\n", midPath)
+		}
+
 		path := in.Outputdir + "/" + strings.Join(modCodeGenDir, "/")
 		declBody := &generator{
-			baseGen: in.newBaseGen(resolver, gm.ModulePath, gm.MidPath, m.Name),
+			baseGen: in.newBaseGen(resolver, gm.ModulePath, midPath, m.Name),
 			rr:      templateRenderer{t: templates},
 		}
 		astBody := &generator{
-			baseGen: in.newBaseGen(resolver, gm.ModulePath, gm.MidPath, m.Name),
+			baseGen: in.newBaseGen(resolver, gm.ModulePath, midPath, m.Name),
 			rr:      templateRenderer{t: templates},
 		}
 		declsNames := []string{}
