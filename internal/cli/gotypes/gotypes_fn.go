@@ -20,42 +20,22 @@ import (
 func (in *GoTypes) Run() error {
 	lr := in.Loader
 	gm := in.GoMod
-	resolver := func(sn adlast.ScopedName) (*adlast.Decl, bool) {
-		if mod, ok := lr.CombinedAst[sn.ModuleName]; ok {
-			decl, ok := mod.Decls[sn.Name]
-			if !ok {
-				panic(fmt.Errorf("%v", sn.Name))
-			}
-			return &decl, true
-		}
-		// resolve adlast, types & go_ even if not provided as input adl source
-		si := goadl.RESOLVER.Resolve(sn)
-		if si != nil {
-			return &si.Decl, true
-		}
-		for k := range lr.CombinedAst {
-			fmt.Printf("-- %v\n", k)
-		}
-		panic(fmt.Errorf("%v", sn.ModuleName))
-	}
-
 	eg := &errgroup.Group{}
 	for _, m := range lr.Modules {
-		fn := thunk_gen_module(m, in, resolver, gm)
+		fn := thunk_gen_module(m, in, gm)
 		// fn()
 		eg.Go(fn)
 	}
 	if err := eg.Wait(); err != nil {
 		return fmt.Errorf("error generating module : %w", err)
 	}
-
 	return nil
 }
 
 func thunk_gen_module(
 	m loader.NamedModule,
 	in *GoTypes,
-	resolver func(sn adlast.ScopedName) (*adlast.Decl, bool),
+	// resolver func(sn adlast.ScopedName) (*adlast.Decl, bool),
 	gm *gomod.GoModResult,
 ) func() error {
 	fn := func() error {
@@ -79,11 +59,11 @@ func thunk_gen_module(
 		}
 		path := in.Outputdir + "/" + strings.Join(modCodeGenDir, "/")
 		declBody := &generator{
-			baseGen: in.newBaseGen(resolver, gm.ModulePath, midPath, m.Name),
+			baseGen: in.newBaseGen(gm.ModulePath, midPath, m.Name),
 			rr:      templateRenderer{t: templates},
 		}
 		astBody := &generator{
-			baseGen: in.newBaseGen(resolver, gm.ModulePath, midPath, m.Name),
+			baseGen: in.newBaseGen(gm.ModulePath, midPath, m.Name),
 			rr:      templateRenderer{t: templates},
 		}
 		declsNames := []string{}
@@ -138,7 +118,6 @@ func thunk_gen_module(
 }
 
 func (in *GoTypes) newBaseGen(
-	resolver func(sn adlast.ScopedName) (*adlast.Decl, bool),
 	modulePath, midPath string,
 	moduleName string,
 ) *baseGen {
@@ -147,9 +126,8 @@ func (in *GoTypes) newBaseGen(
 		in.Loader.BundleMaps,
 	)
 	return &baseGen{
-		cli:      in,
-		resolver: resolver,
-		// typetoken_flds: typetoken_flds,
+		cli:        in,
+		resolver:   in.Loader.Resolver,
 		modulePath: modulePath,
 		midPath:    midPath,
 		moduleName: moduleName,

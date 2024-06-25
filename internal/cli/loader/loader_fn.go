@@ -18,6 +18,22 @@ import (
 	"github.com/mattn/go-zglob"
 )
 
+func (lr *LoadResult) Resolver(sn adlast.ScopedName) (*adlast.Decl, bool) {
+	if mod, ok := lr.CombinedAst[sn.ModuleName]; ok {
+		decl, ok := mod.Decls[sn.Name]
+		if !ok {
+			panic(fmt.Errorf("%v", sn.Name))
+		}
+		return &decl, true
+	}
+	// resolve adlast, types & go_ even if not provided as input adl source
+	si := goadl.RESOLVER.Resolve(sn)
+	if si != nil {
+		return &si.Decl, true
+	}
+	return nil, false
+}
+
 func (in *Loader) Load() (*LoadResult, error) {
 	for _, bm := range in.BundleMaps {
 		if strings.HasPrefix(bm.AdlSrc, "file://") {
