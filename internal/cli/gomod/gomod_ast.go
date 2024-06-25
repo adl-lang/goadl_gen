@@ -84,21 +84,6 @@ func AST_GoModule() adlast.ScopedDecl {
 				[]adlast.Ident{},
 				[]adlast.Field{
 					adlast.MakeAll_Field(
-						"ModulePath",
-						"ModulePath",
-						adlast.MakeAll_TypeExpr(
-							adlast.Make_TypeRef_reference(
-								adlast.MakeAll_ScopedName(
-									"cli.gomod",
-									"GoModResult",
-								),
-							),
-							[]adlast.TypeExpr{},
-						),
-						types.Make_Maybe_nothing[any](),
-						customtypes.MapMap[adlast.ScopedName, any]{adlast.Make_ScopedName("sys.annotations", "Doc"): "The path of the Go module for the generated code.\n"},
-					),
-					adlast.MakeAll_Field(
 						"GoModFile",
 						"GoModFile",
 						adlast.MakeAll_TypeExpr(

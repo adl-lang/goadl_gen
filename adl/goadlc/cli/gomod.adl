@@ -1,8 +1,8 @@
 module cli.gomod {
 
 union GoModule {
-    /// The path of the Go module for the generated code.
-    GoModResult ModulePath;
+    // /// The path of the Go module for the generated code.
+    // GoModResult ModulePath;
     /// Path of a go.mod file
     String GoModFile;
     /// Used to find the go.mod file and calculate the codes module-path and sub-dir of generated code

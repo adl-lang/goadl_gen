@@ -12,38 +12,20 @@ import (
 func (in *GoModule) Modpath(debug bool) (*GoModResult, error) {
 	return HandleWithErr_GoModule[*GoModResult](
 		*in,
-		func(modulePath GoModResult) (*GoModResult, error) {
-			return &modulePath, nil
-			// return goadl.Addr(Make_GoModResult(modulePath, "")), nil
-		},
 		func(goModFile string) (*GoModResult, error) {
 			return fromGoModFile(goModFile, debug)
 		},
-		func(outputdir string) (*GoModResult, error) {
-			dir := outputdir
+		func(dir string) (*GoModResult, error) {
 			goModFile := filepath.Join(dir, "go.mod")
-			midPath := ""
-			last := false
-			if outputdir == "" {
-				last = true
-			}
 			for {
 				if debug {
 					fmt.Fprintf(os.Stderr, "searching for module-path in go.mod file. go.mod:%s\n", goModFile)
 				}
-				if gms, err := os.Stat(goModFile); err == nil && !gms.IsDir() {
+				if _, err := os.Stat(goModFile); dir == "" || err == nil {
 					break
 				}
-				dir0, file := filepath.Split(dir)
-				dir = dir0
-				if last {
-					break
-				}
-				if dir == "" {
-					last = true
-				}
+				dir, _ = filepath.Split(dir)
 				goModFile = filepath.Join(dir, "go.mod")
-				midPath = filepath.Join(midPath, file)
 			}
 			if debug {
 				fmt.Fprintf(os.Stderr, "looking for module-path in go.mod file. go.mod:%s\n", goModFile)

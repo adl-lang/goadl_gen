@@ -89,11 +89,10 @@ func thunk_gen_module(
 		if !strings.HasPrefix(oabs, rabs) {
 			return fmt.Errorf("output dir must be inside root of go.mod out: %s root: %s", oabs, rabs)
 		}
-		midPath := oabs[len(rabs):]
-		if in.Root.Debug {
-			fmt.Fprintf(os.Stderr, "midpath '%s'\n", midPath)
-		}
-
+		midPath := oabs[len(rabs)+1:]
+		// if in.Root.Debug {
+		// 	fmt.Fprintf(os.Stderr, "out: '%s' root: '%s' midpath: '%s'\n", oabs, rabs, midPath)
+		// }
 		path := in.Outputdir + "/" + strings.Join(modCodeGenDir, "/")
 		declBody := &generator{
 			baseGen: in.newBaseGen(resolver, gm.ModulePath, midPath, m.Name),

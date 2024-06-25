@@ -49,8 +49,6 @@ type GoModuleBranch interface {
 
 func (*GoModule) MakeNewBranch(key string) (any, error) {
 	switch key {
-	case "ModulePath":
-		return &_GoModule_ModulePath{}, nil
 	case "GoModFile":
 		return &_GoModule_GoModFile{}, nil
 	case "Outputdir":
@@ -59,9 +57,6 @@ func (*GoModule) MakeNewBranch(key string) (any, error) {
 	return nil, fmt.Errorf("unknown branch is : %s", key)
 }
 
-type _GoModule_ModulePath struct {
-	V GoModResult `branch:"ModulePath"`
-}
 type _GoModule_GoModFile struct {
 	V string `branch:"GoModFile"`
 }
@@ -69,15 +64,8 @@ type _GoModule_Outputdir struct {
 	V string `branch:"Outputdir"`
 }
 
-func (_GoModule_ModulePath) isGoModuleBranch() {}
-func (_GoModule_GoModFile) isGoModuleBranch()  {}
-func (_GoModule_Outputdir) isGoModuleBranch()  {}
-
-func Make_GoModule_ModulePath(v GoModResult) GoModule {
-	return GoModule{
-		_GoModule_ModulePath{v},
-	}
-}
+func (_GoModule_GoModFile) isGoModuleBranch() {}
+func (_GoModule_Outputdir) isGoModuleBranch() {}
 
 func Make_GoModule_GoModFile(v string) GoModule {
 	return GoModule{
@@ -89,11 +77,6 @@ func Make_GoModule_Outputdir(v string) GoModule {
 	return GoModule{
 		_GoModule_Outputdir{v},
 	}
-}
-
-func (un GoModule) Cast_ModulePath() (GoModResult, bool) {
-	br, ok := un.Branch.(_GoModule_ModulePath)
-	return br.V, ok
 }
 
 func (un GoModule) Cast_GoModFile() (string, bool) {
@@ -108,16 +91,11 @@ func (un GoModule) Cast_Outputdir() (string, bool) {
 
 func Handle_GoModule[T any](
 	_in GoModule,
-	ModulePath func(ModulePath GoModResult) T,
 	GoModFile func(GoModFile string) T,
 	Outputdir func(Outputdir string) T,
 	_default func() T,
 ) T {
 	switch _b := _in.Branch.(type) {
-	case _GoModule_ModulePath:
-		if ModulePath != nil {
-			return ModulePath(_b.V)
-		}
 	case _GoModule_GoModFile:
 		if GoModFile != nil {
 			return GoModFile(_b.V)
@@ -135,16 +113,11 @@ func Handle_GoModule[T any](
 
 func HandleWithErr_GoModule[T any](
 	_in GoModule,
-	ModulePath func(ModulePath GoModResult) (T, error),
 	GoModFile func(GoModFile string) (T, error),
 	Outputdir func(Outputdir string) (T, error),
 	_default func() (T, error),
 ) (T, error) {
 	switch _b := _in.Branch.(type) {
-	case _GoModule_ModulePath:
-		if ModulePath != nil {
-			return ModulePath(_b.V)
-		}
 	case _GoModule_GoModFile:
 		if GoModFile != nil {
 			return GoModFile(_b.V)
