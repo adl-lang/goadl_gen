@@ -68,18 +68,21 @@ type _LoadResult struct {
 	CombinedAst map[string]adlast.Module `json:"CombinedAst"`
 	Modules     []NamedModule            `json:"Modules"`
 	Files       []string                 `json:"Files"`
+	BundleMaps  []BundleMap              `json:"BundleMaps"`
 }
 
 func MakeAll_LoadResult(
 	combinedast map[string]adlast.Module,
 	modules []NamedModule,
 	files []string,
+	bundlemaps []BundleMap,
 ) LoadResult {
 	return LoadResult{
 		_LoadResult{
 			CombinedAst: combinedast,
 			Modules:     modules,
 			Files:       files,
+			BundleMaps:  bundlemaps,
 		},
 	}
 }
@@ -88,12 +91,14 @@ func Make_LoadResult(
 	combinedast map[string]adlast.Module,
 	modules []NamedModule,
 	files []string,
+	bundlemaps []BundleMap,
 ) LoadResult {
 	ret := LoadResult{
 		_LoadResult{
 			CombinedAst: combinedast,
 			Modules:     modules,
 			Files:       files,
+			BundleMaps:  bundlemaps,
 		},
 	}
 	return ret

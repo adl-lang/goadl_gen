@@ -51,7 +51,7 @@ func AST_GoTypes() adlast.ScopedDecl {
 						customtypes.MapMap[adlast.ScopedName, any]{},
 					),
 					adlast.MakeAll_Field(
-						"Loader",
+						"loader",
 						"-",
 						adlast.MakeAll_TypeExpr(
 							adlast.Make_TypeRef_primitive(
@@ -62,7 +62,7 @@ func AST_GoTypes() adlast.ScopedDecl {
 									adlast.Make_TypeRef_reference(
 										adlast.MakeAll_ScopedName(
 											"cli.loader",
-											"Loader",
+											"LoadResult",
 										),
 									),
 									[]adlast.TypeExpr{},
@@ -75,7 +75,7 @@ func AST_GoTypes() adlast.ScopedDecl {
 						customtypes.MapMap[adlast.ScopedName, any]{},
 					),
 					adlast.MakeAll_Field(
-						"GoMod",
+						"goMod",
 						"-",
 						adlast.MakeAll_TypeExpr(
 							adlast.Make_TypeRef_primitive(
@@ -86,7 +86,7 @@ func AST_GoTypes() adlast.ScopedDecl {
 									adlast.Make_TypeRef_reference(
 										adlast.MakeAll_ScopedName(
 											"cli.gomod",
-											"GoModule",
+											"GoModResult",
 										),
 									),
 									[]adlast.TypeExpr{},
@@ -97,20 +97,6 @@ func AST_GoTypes() adlast.ScopedDecl {
 							nil,
 						),
 						customtypes.MapMap[adlast.ScopedName, any]{},
-					),
-					adlast.MakeAll_Field(
-						"ChangePWD",
-						"ChangePWD",
-						adlast.MakeAll_TypeExpr(
-							adlast.Make_TypeRef_primitive(
-								"String",
-							),
-							[]adlast.TypeExpr{},
-						),
-						types.Make_Maybe_just[any](
-							"",
-						),
-						customtypes.MapMap[adlast.ScopedName, any]{adlast.Make_ScopedName("sys.annotations", "Doc"): "The directory to change to after root read cfg but before running (used in dev)\"\n"},
 					),
 					adlast.MakeAll_Field(
 						"NoGoFmt",

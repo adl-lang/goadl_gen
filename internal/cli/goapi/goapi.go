@@ -2,6 +2,7 @@
 package goapi
 
 import (
+	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
 	"github.com/adl-lang/goadlc/internal/cli/gomod"
 	"github.com/adl-lang/goadlc/internal/cli/loader"
 	"github.com/adl-lang/goadlc/internal/cli/root"
@@ -12,17 +13,17 @@ type GoApi struct {
 }
 
 type _GoApi struct {
-	Root      *root.Root      `json:"-"`
-	Loader    *loader.Loader  `json:"-"`
-	GoMod     *gomod.GoModule `json:"-"`
-	ApiStruct string          `json:"ApiStruct"`
+	Root      *root.Root         `json:"-"`
+	Loader    *loader.LoadResult `json:"-"`
+	GoMod     *gomod.GoModResult `json:"-"`
+	ApiStruct adlast.ScopedName  `json:"ApiStruct"`
 }
 
 func MakeAll_GoApi(
 	root *root.Root,
-	loader *loader.Loader,
-	gomod *gomod.GoModule,
-	apistruct string,
+	loader *loader.LoadResult,
+	gomod *gomod.GoModResult,
+	apistruct adlast.ScopedName,
 ) GoApi {
 	return GoApi{
 		_GoApi{
@@ -35,7 +36,7 @@ func MakeAll_GoApi(
 }
 
 func Make_GoApi(
-	apistruct string,
+	apistruct adlast.ScopedName,
 ) GoApi {
 	ret := GoApi{
 		_GoApi{
@@ -51,9 +52,9 @@ func Make_GoApi(
 func (*GoApi) Default_root() *root.Root {
 	return nil
 }
-func (*GoApi) Default_loader() *loader.Loader {
+func (*GoApi) Default_loader() *loader.LoadResult {
 	return nil
 }
-func (*GoApi) Default_goMod() *gomod.GoModule {
+func (*GoApi) Default_goMod() *gomod.GoModResult {
 	return nil
 }

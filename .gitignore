@@ -22,3 +22,6 @@ go.work
 
 .local/
 /goadlc
+cmd/goadlc/goadlc
+*-
+/main

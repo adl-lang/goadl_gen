@@ -36,8 +36,7 @@ func (in *Loader) Load() (*LoadResult, error) {
 		}
 	}
 
-	results := &LoadResult{}
-
+	files := []string{}
 	if len(in.Files) == 0 {
 		return nil, fmt.Errorf("no file or pattern specified")
 	}
@@ -47,30 +46,25 @@ func (in *Loader) Load() (*LoadResult, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error globbing file : %v", err)
 		}
-		results.Files = append(results.Files, matchs...)
+		files = append(files, matchs...)
 	}
-	if len(results.Files) == 0 {
+	if len(files) == 0 {
 		return nil, fmt.Errorf("no files found")
 	}
 	if in.Root.Debug {
 		fmt.Fprintf(os.Stderr, "found files:\n")
-		for _, f := range results.Files {
+		for _, f := range files {
 			fmt.Fprintf(os.Stderr, "  %v\n", f)
 		}
 	}
 
-	results.Modules = []NamedModule{}
-	var err error
-	results.CombinedAst, results.Modules, err = loadAdl(in, results.Files)
+	combinedast, modules, err := loadAdl(in, files)
 	if err != nil {
 		return nil, err
 	}
 
-	// results.ModulePath, results.MidPath, err = in.modpath()
-	// if err != nil {
-	// 	return nil, err
-	// }
-	return results, nil
+	results := Make_LoadResult(combinedast, modules, files, in.BundleMaps)
+	return &results, nil
 }
 
 func loadAdl(

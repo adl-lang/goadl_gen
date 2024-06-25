@@ -12,22 +12,20 @@ type GoTypes struct {
 }
 
 type _GoTypes struct {
-	Root       *root.Root      `json:"-"`
-	Loader     *loader.Loader  `json:"-"`
-	GoMod      *gomod.GoModule `json:"-"`
-	ChangePWD  string          `json:"ChangePWD"`
-	NoGoFmt    bool            `json:"NoGoFmt"`
-	GoAdlPath  string          `json:"GoAdlPath"`
-	ExcludeAst bool            `json:"ExcludeAst"`
-	StdLibGen  bool            `json:"StdLibGen"`
-	Outputdir  string          `json:"Outputdir"`
+	Root       *root.Root         `json:"-"`
+	Loader     *loader.LoadResult `json:"-"`
+	GoMod      *gomod.GoModResult `json:"-"`
+	NoGoFmt    bool               `json:"NoGoFmt"`
+	GoAdlPath  string             `json:"GoAdlPath"`
+	ExcludeAst bool               `json:"ExcludeAst"`
+	StdLibGen  bool               `json:"StdLibGen"`
+	Outputdir  string             `json:"Outputdir"`
 }
 
 func MakeAll_GoTypes(
 	root *root.Root,
-	loader *loader.Loader,
-	gomod *gomod.GoModule,
-	changepwd string,
+	loader *loader.LoadResult,
+	gomod *gomod.GoModResult,
 	nogofmt bool,
 	goadlpath string,
 	excludeast bool,
@@ -39,7 +37,6 @@ func MakeAll_GoTypes(
 			Root:       root,
 			Loader:     loader,
 			GoMod:      gomod,
-			ChangePWD:  changepwd,
 			NoGoFmt:    nogofmt,
 			GoAdlPath:  goadlpath,
 			ExcludeAst: excludeast,
@@ -55,9 +52,8 @@ func Make_GoTypes(
 	ret := GoTypes{
 		_GoTypes{
 			Root:       ((*GoTypes)(nil)).Default_Root(),
-			Loader:     ((*GoTypes)(nil)).Default_Loader(),
-			GoMod:      ((*GoTypes)(nil)).Default_GoMod(),
-			ChangePWD:  ((*GoTypes)(nil)).Default_ChangePWD(),
+			Loader:     ((*GoTypes)(nil)).Default_loader(),
+			GoMod:      ((*GoTypes)(nil)).Default_goMod(),
 			NoGoFmt:    ((*GoTypes)(nil)).Default_NoGoFmt(),
 			GoAdlPath:  ((*GoTypes)(nil)).Default_GoAdlPath(),
 			ExcludeAst: ((*GoTypes)(nil)).Default_ExcludeAst(),
@@ -71,14 +67,11 @@ func Make_GoTypes(
 func (*GoTypes) Default_Root() *root.Root {
 	return nil
 }
-func (*GoTypes) Default_Loader() *loader.Loader {
+func (*GoTypes) Default_loader() *loader.LoadResult {
 	return nil
 }
-func (*GoTypes) Default_GoMod() *gomod.GoModule {
+func (*GoTypes) Default_goMod() *gomod.GoModResult {
 	return nil
-}
-func (*GoTypes) Default_ChangePWD() string {
-	return ""
 }
 func (*GoTypes) Default_NoGoFmt() bool {
 	return false

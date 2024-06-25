@@ -14,27 +14,30 @@ type GenGo struct {
 }
 
 type _GenGo struct {
-	Root    *root.Root       `json:"-"`
-	Loader  *loader.Loader   `json:"Loader"`
-	Mod     *gomod.GoModule  `json:"Mod"`
-	GoTypes *gotypes.GoTypes `json:"GoTypes"`
-	GoApis  *[]goapi.GoApi   `json:"GoApis"`
+	Root      *root.Root       `json:"-"`
+	Loader    *loader.Loader   `json:"Loader"`
+	Mod       *gomod.GoModule  `json:"Mod"`
+	ChangePWD string           `json:"ChangePWD"`
+	GoTypes   *gotypes.GoTypes `json:"GoTypes"`
+	GoApis    *[]goapi.GoApi   `json:"GoApis"`
 }
 
 func MakeAll_GenGo(
 	root *root.Root,
 	loader *loader.Loader,
 	mod *gomod.GoModule,
+	changepwd string,
 	gotypes *gotypes.GoTypes,
 	goapis *[]goapi.GoApi,
 ) GenGo {
 	return GenGo{
 		_GenGo{
-			Root:    root,
-			Loader:  loader,
-			Mod:     mod,
-			GoTypes: gotypes,
-			GoApis:  goapis,
+			Root:      root,
+			Loader:    loader,
+			Mod:       mod,
+			ChangePWD: changepwd,
+			GoTypes:   gotypes,
+			GoApis:    goapis,
 		},
 	}
 }
@@ -46,11 +49,12 @@ func Make_GenGo(
 ) GenGo {
 	ret := GenGo{
 		_GenGo{
-			Root:    ((*GenGo)(nil)).Default_root(),
-			Loader:  loader,
-			Mod:     mod,
-			GoTypes: gotypes,
-			GoApis:  ((*GenGo)(nil)).Default_GoApis(),
+			Root:      ((*GenGo)(nil)).Default_root(),
+			Loader:    loader,
+			Mod:       mod,
+			ChangePWD: ((*GenGo)(nil)).Default_ChangePWD(),
+			GoTypes:   gotypes,
+			GoApis:    ((*GenGo)(nil)).Default_GoApis(),
 		},
 	}
 	return ret
@@ -58,6 +62,9 @@ func Make_GenGo(
 
 func (*GenGo) Default_root() *root.Root {
 	return nil
+}
+func (*GenGo) Default_ChangePWD() string {
+	return ""
 }
 func (*GenGo) Default_GoApis() *[]goapi.GoApi {
 	return nil

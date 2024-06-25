@@ -18,27 +18,8 @@ import (
 )
 
 func (in *GoTypes) Run() error {
-	if in.ChangePWD != "" {
-		err := os.Chdir(in.ChangePWD)
-		if err != nil {
-			return err
-		}
-	}
-	res, err := in.Loader.Load()
-	if err != nil {
-		return err
-	}
-	gm, err := in.GoMod.Modpath(in.Root.Debug)
-	if err != nil {
-		return err
-	}
-	return in.generate(res, gm)
-}
-
-func (in *GoTypes) generate(
-	lr *loader.LoadResult,
-	gm *gomod.GoModResult,
-) error {
+	lr := in.Loader
+	gm := in.GoMod
 	resolver := func(sn adlast.ScopedName) (*adlast.Decl, bool) {
 		if mod, ok := lr.CombinedAst[sn.ModuleName]; ok {
 			decl, ok := mod.Decls[sn.Name]
@@ -89,10 +70,13 @@ func thunk_gen_module(
 		if !strings.HasPrefix(oabs, rabs) {
 			return fmt.Errorf("output dir must be inside root of go.mod out: %s root: %s", oabs, rabs)
 		}
-		midPath := oabs[len(rabs)+1:]
 		// if in.Root.Debug {
-		// 	fmt.Fprintf(os.Stderr, "out: '%s' root: '%s' midpath: '%s'\n", oabs, rabs, midPath)
+		// 	fmt.Fprintf(os.Stderr, "out: '%s' root: '%s'\n", oabs, rabs)
 		// }
+		var midPath string
+		if oabs != rabs {
+			midPath = oabs[len(rabs)+1:]
+		}
 		path := in.Outputdir + "/" + strings.Join(modCodeGenDir, "/")
 		declBody := &generator{
 			baseGen: in.newBaseGen(resolver, gm.ModulePath, midPath, m.Name),

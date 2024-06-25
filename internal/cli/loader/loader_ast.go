@@ -200,6 +200,28 @@ func AST_LoadResult() adlast.ScopedDecl {
 						types.Make_Maybe_nothing[any](),
 						customtypes.MapMap[adlast.ScopedName, any]{},
 					),
+					adlast.MakeAll_Field(
+						"BundleMaps",
+						"BundleMaps",
+						adlast.MakeAll_TypeExpr(
+							adlast.Make_TypeRef_primitive(
+								"Vector",
+							),
+							[]adlast.TypeExpr{
+								adlast.MakeAll_TypeExpr(
+									adlast.Make_TypeRef_reference(
+										adlast.MakeAll_ScopedName(
+											"cli.loader",
+											"BundleMap",
+										),
+									),
+									[]adlast.TypeExpr{},
+								),
+							},
+						),
+						types.Make_Maybe_nothing[any](),
+						customtypes.MapMap[adlast.ScopedName, any]{},
+					),
 				},
 			),
 		),

@@ -31,6 +31,7 @@ struct LoadResult {
     StringMap<sys.adlast.Module> CombinedAst;
     Vector<NamedModule> Modules;
     Vector<String> Files;
+    Vector<BundleMap> BundleMaps;
 };
 
 struct NamedModule {

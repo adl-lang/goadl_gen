@@ -95,6 +95,20 @@ func AST_GenGo() adlast.ScopedDecl {
 						customtypes.MapMap[adlast.ScopedName, any]{adlast.Make_ScopedName("sys.annotations", "Doc"): "Used to find the go.mod file and calculate the codes module-path and sub-dir of generated code\n"},
 					),
 					adlast.MakeAll_Field(
+						"ChangePWD",
+						"ChangePWD",
+						adlast.MakeAll_TypeExpr(
+							adlast.Make_TypeRef_primitive(
+								"String",
+							),
+							[]adlast.TypeExpr{},
+						),
+						types.Make_Maybe_just[any](
+							"",
+						),
+						customtypes.MapMap[adlast.ScopedName, any]{adlast.Make_ScopedName("sys.annotations", "Doc"): "The directory to change to after root read cfg but before running (used in dev)\"\n"},
+					),
+					adlast.MakeAll_Field(
 						"GoTypes",
 						"GoTypes",
 						adlast.MakeAll_TypeExpr(

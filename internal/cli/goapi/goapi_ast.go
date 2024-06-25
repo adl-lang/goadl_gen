@@ -62,7 +62,7 @@ func AST_GoApi() adlast.ScopedDecl {
 									adlast.Make_TypeRef_reference(
 										adlast.MakeAll_ScopedName(
 											"cli.loader",
-											"Loader",
+											"LoadResult",
 										),
 									),
 									[]adlast.TypeExpr{},
@@ -86,7 +86,7 @@ func AST_GoApi() adlast.ScopedDecl {
 									adlast.Make_TypeRef_reference(
 										adlast.MakeAll_ScopedName(
 											"cli.gomod",
-											"GoModule",
+											"GoModResult",
 										),
 									),
 									[]adlast.TypeExpr{},
@@ -102,8 +102,11 @@ func AST_GoApi() adlast.ScopedDecl {
 						"ApiStruct",
 						"ApiStruct",
 						adlast.MakeAll_TypeExpr(
-							adlast.Make_TypeRef_primitive(
-								"String",
+							adlast.Make_TypeRef_reference(
+								adlast.MakeAll_ScopedName(
+									"sys.adlast",
+									"ScopedName",
+								),
 							),
 							[]adlast.TypeExpr{},
 						),

@@ -1,17 +1,17 @@
 module cli.goapi {
 
 import cli.root.Root;
-import cli.loader.Loader;
-import cli.gomod.GoModule;
+import cli.loader.LoadResult;
+import cli.gomod.GoModResult;
 
 struct GoApi {
     @SerializedName "-"
     Nullable<Root> root = null;
     @SerializedName "-"
-    Nullable<Loader> loader = null;
+    Nullable<LoadResult> loader = null;
     @SerializedName "-"
-    Nullable<GoModule> goMod = null;
-    String ApiStruct;
+    Nullable<GoModResult> goMod = null;
+    sys.adlast.ScopedName ApiStruct;
 };
 
 };

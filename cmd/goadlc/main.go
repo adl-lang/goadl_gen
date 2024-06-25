@@ -37,8 +37,6 @@ func main() {
 	ld.Root = rt
 
 	gt.Root = rt
-	gt.Loader = ld
-	gt.GoMod = gm
 
 	gg.Loader = ld
 	gg.GoTypes = gt
