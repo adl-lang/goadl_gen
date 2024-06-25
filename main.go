@@ -4,18 +4,18 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/adl-lang/goadlc/internal/gen_go/gomod"
-	"github.com/adl-lang/goadlc/internal/gen_go/load"
-	gen_go_v3 "github.com/adl-lang/goadlc/internal/gen_go/v3"
 	"github.com/adl-lang/goadlc/internal/root"
+	"github.com/adl-lang/goadlc/internal/subcmds/gen_go"
+	"github.com/adl-lang/goadlc/internal/subcmds/gomod"
+	"github.com/adl-lang/goadlc/internal/subcmds/load"
 	"github.com/jpillora/opts"
 )
 
 func main() {
 	rflg := &root.RootObj{}
 	loadFlg := load.NewLoadCmd(rflg)
-	goFlg := gomod.NewGoCmd(rflg)
-	gorepFlg := gen_go_v3.NewGenGoV3(rflg, goFlg, loadFlg)
+	goFlg := gomod.NewGoCmd(rflg, loadFlg)
+	gorepFlg := gen_go.NewGenGoV3(rflg, goFlg, loadFlg)
 
 	loadCmd := opts.New(loadFlg).Name("load")
 	goCmd := opts.New(goFlg).Name("go")
@@ -31,13 +31,11 @@ func main() {
 	loadCmd.AddCommand(goCmd)
 	goCmd.AddCommand(typeCmd)
 
-	cliBldr.AddCommand(opts.New(gen_go_v3.NewGenTypeExprV3()).Name("v3_gen_texpr"))
+	cliBldr.AddCommand(opts.New(gen_go.NewGenTypeExprV3()).Name("v3_gen_texpr"))
 	cliBldr.AddCommand(opts.New(&versionCmd{}).Name("version"))
 
 	op, err := cliBldr.ParseArgsError(os.Args)
 	if err != nil {
-		// fmt.Fprintf(os.Stderr, "%s", op.Selected().Help())
-		// fmt.Fprintf(os.Stderr, "  Error:\n    %s\n", err)
 		fmt.Fprintf(os.Stderr, "%s", err)
 		os.Exit(1)
 	}

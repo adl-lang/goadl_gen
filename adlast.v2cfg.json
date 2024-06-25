@@ -8,15 +8,15 @@
       "adl/stdlib_go/**/*.adl"
     ]
   },
-  "GoMod": {
-    "ModulePath": "",
-    "GoModFile": "",
+  "Mod": {
     "Outputdir": "../goadl_rt/v3"
   },
   "GoTypes": {
     "NoGoFmt": false,
     "GoAdlPath": "github.com/adl-lang/goadl_rt/v3",
     "ExcludeAst": false,
-    "StdLibGen": true
-  }
+    "StdLibGen": true,
+    "Outputdir": "../goadl_rt/v3"
+  },
+  "GoApis": null
 }
