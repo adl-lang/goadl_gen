@@ -1,1 +1,1 @@
-	{{.Name}}(req {{.Req}}) {{.Resp}}
+	{{.Name}}(req {{.G.GoType .Req .Annotations}}) {{.G.GoType .Resp .Annotations}}

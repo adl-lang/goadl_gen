@@ -5,7 +5,6 @@ import (
 	"go/format"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"slices"
 	"strings"
 
@@ -225,13 +224,6 @@ func (in *GoTypes) specialTexpr() map[string]struct{} {
 }
 
 func (bg *GoTypes) GoImport(pkg string, currModuleName string, imports goimports.Imports) (string, error) {
-	defer func() {
-		r := recover()
-		if r != nil {
-			fmt.Fprintf(os.Stderr, "ERROR in GoImport %v\n%v", r, string(debug.Stack()))
-			panic(r)
-		}
-	}()
 	if _, ok := bg.specialTexpr()[currModuleName]; ok && bg._GoTypes.StdLibGen && pkg == "goadl" {
 		return "", nil
 	}

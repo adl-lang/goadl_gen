@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
+	"github.com/adl-lang/goadlc/internal/cli/gogen"
 	"github.com/adl-lang/goadlc/internal/cli/goimports"
 	"github.com/adl-lang/goadlc/internal/cli/loader"
 	"github.com/samber/lo"
@@ -35,25 +36,35 @@ func (in *GoApi) Run() error {
 	if err != nil {
 		return err
 	}
-	body := &generator{
-		baseGen: in.newBaseGen(in.GoMod.ModulePath, midPath),
-		rr:      templateRenderer{t: templates},
+	base := gogen.NewBaseGen(
+		in.GoMod.ModulePath,
+		midPath,
+		in.ApiStruct.ModuleName,
+		in,
+		*in.Loader,
+	)
+	body := &gogen.Generator{
+		BaseGen: base,
+		Rr:      gogen.TemplateRenderer{Tmpl: templates},
 	}
-	body.rr.Render(serviceParams{
+	body.Rr.Render(serviceParams{
+		G:    body,
 		Name: in.ApiStruct.Name,
 	})
 	for _, fi := range apiSt.Fields {
 		if ref, ok := fi.TypeExpr.TypeRef.Cast_reference(); ok {
 			if ref.Name == "HttpPost" {
-				body.rr.Render(postParams{
-					Name: fi.Name,
-					Req:  fi.TypeExpr.Parameters[0],
-					Resp: fi.TypeExpr.Parameters[1],
+				body.Rr.Render(postParams{
+					G:           body,
+					Name:        fi.Name,
+					Annotations: fi.Annotations,
+					Req:         fi.TypeExpr.Parameters[0],
+					Resp:        fi.TypeExpr.Parameters[1],
 				})
 			}
 		}
 	}
-	fmt.Printf("%s\n", body.rr.buf.String())
+	fmt.Printf("%s\n", body.Rr.Buf.String())
 
 	// adlast.HandleWithErr_DeclType[*adlast.Struct](
 	// 	decl,
@@ -77,64 +88,41 @@ func (in *GoApi) Run() error {
 }
 
 type serviceParams struct {
-	G    *generator
+	G    *gogen.Generator
 	Name string
 }
 type postParams struct {
-	G    *generator
-	Name string
-	Req  adlast.TypeExpr
-	Resp adlast.TypeExpr
+	G           *gogen.Generator
+	Name        string
+	Annotations adlast.Annotations
+	Req         adlast.TypeExpr
+	Resp        adlast.TypeExpr
 }
 
-func (in *GoApi) reservedImports() []goimports.ImportSpec {
+func (in *GoApi) ReservedImports() []goimports.ImportSpec {
 	return []goimports.ImportSpec{
 		{Path: "net/http"},
 	}
 }
 
-type snResolver func(sn adlast.ScopedName) (*adlast.Decl, bool)
-
-type baseGen struct {
-	cli        *GoApi
-	resolver   snResolver
-	modulePath string
-	midPath    string
-	// moduleName string
-	imports goimports.Imports
+// GoImport implements gogen.SubTask.
+func (bg *GoApi) IsStdLibGen() bool {
+	return false
 }
 
-func (in *GoApi) newBaseGen(
-	modulePath, midPath string,
-	// moduleName string,
-) *baseGen {
-	imports := goimports.NewImports(
-		in.reservedImports(),
-		in.Loader.BundleMaps,
-	)
-	return &baseGen{
-		cli:        in,
-		resolver:   in.Loader.Resolver,
-		modulePath: modulePath,
-		midPath:    midPath,
-		// moduleName: moduleName,
-		imports: imports,
-	}
+// GoImport implements gogen.SubTask.
+func (bg *GoApi) GoAdlImportPath() string {
+	return "github.com/adl-lang/goadl_rt/v3"
 }
 
-func (bg *baseGen) GoImport(pkg string) (string, error) {
-	if spec, ok := bg.imports.ByName(pkg); !ok {
+// GoImport implements gogen.SubTask.
+func (in *GoApi) GoImport(pkg string, currModuleName string, imports goimports.Imports) (string, error) {
+	if spec, ok := imports.ByName(pkg); !ok {
 		return "", fmt.Errorf("unknown import %s", pkg)
 	} else {
-		bg.imports.AddPath(spec.Path)
+		imports.AddPath(spec.Path)
 		return spec.Name + ".", nil
 	}
-}
-
-type generator struct {
-	*baseGen
-	rr        templateRenderer
-	genAdlAst bool
 }
 
 func ExpandTypeAliases(lr *loader.LoadResult, te adlast.TypeExpr) adlast.TypeExpr {

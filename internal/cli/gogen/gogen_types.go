@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"runtime/debug"
 	"strings"
 	"text/template"
 
@@ -59,6 +60,13 @@ type Generator struct {
 // }
 
 func (in *Generator) GoImport(s string) (string, error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			fmt.Fprintf(os.Stderr, "ERROR in GoImport %v\n%v", r, string(debug.Stack()))
+			panic(r)
+		}
+	}()
 	return in.Cli.GoImport(s, in.ModuleName, in.Imports)
 }
 
