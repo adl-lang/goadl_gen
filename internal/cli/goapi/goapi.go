@@ -17,6 +17,7 @@ type _GoApi struct {
 	Loader    *loader.LoadResult `json:"-"`
 	GoMod     *gomod.GoModResult `json:"-"`
 	ApiStruct adlast.ScopedName  `json:"ApiStruct"`
+	Outputdir string             `json:"Outputdir"`
 }
 
 func MakeAll_GoApi(
@@ -24,6 +25,7 @@ func MakeAll_GoApi(
 	loader *loader.LoadResult,
 	gomod *gomod.GoModResult,
 	apistruct adlast.ScopedName,
+	outputdir string,
 ) GoApi {
 	return GoApi{
 		_GoApi{
@@ -31,12 +33,14 @@ func MakeAll_GoApi(
 			Loader:    loader,
 			GoMod:     gomod,
 			ApiStruct: apistruct,
+			Outputdir: outputdir,
 		},
 	}
 }
 
 func Make_GoApi(
 	apistruct adlast.ScopedName,
+	outputdir string,
 ) GoApi {
 	ret := GoApi{
 		_GoApi{
@@ -44,6 +48,7 @@ func Make_GoApi(
 			Loader:    ((*GoApi)(nil)).Default_loader(),
 			GoMod:     ((*GoApi)(nil)).Default_goMod(),
 			ApiStruct: apistruct,
+			Outputdir: outputdir,
 		},
 	}
 	return ret

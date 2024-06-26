@@ -5,6 +5,8 @@
     ],
     "MergeAdlext": "adl-go",
     "Files": [
+      ".local/lib/adl/sys/**/*.adl",
+      ".local/lib/adl/adlc/**/*.adl",
       "adl/stdlib_go/**/*.adl"
     ]
   },

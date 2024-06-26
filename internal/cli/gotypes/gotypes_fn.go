@@ -5,14 +5,18 @@ import (
 	"go/format"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"slices"
 	"strings"
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
 	"github.com/adl-lang/goadl_rt/v3/sys/types"
+	"github.com/adl-lang/goadlc/internal/cli/gogen"
+	"github.com/adl-lang/goadlc/internal/cli/goimports"
 	"github.com/adl-lang/goadlc/internal/cli/gomod"
 	"github.com/adl-lang/goadlc/internal/cli/loader"
+
 	"github.com/samber/lo"
 	"golang.org/x/sync/errgroup"
 )
@@ -35,7 +39,6 @@ func (in *GoTypes) Run() error {
 func thunk_gen_module(
 	m loader.NamedModule,
 	in *GoTypes,
-	// resolver func(sn adlast.ScopedName) (*adlast.Decl, bool),
 	gm *gomod.GoModResult,
 ) func() error {
 	fn := func() error {
@@ -58,13 +61,13 @@ func thunk_gen_module(
 			midPath = oabs[len(rabs)+1:]
 		}
 		path := in.Outputdir + "/" + strings.Join(modCodeGenDir, "/")
-		declBody := &generator{
-			baseGen: in.newBaseGen(gm.ModulePath, midPath, m.Name),
-			rr:      templateRenderer{t: templates},
+		declBody := &gogen.Generator{
+			BaseGen: gogen.NewBaseGen(gm.ModulePath, midPath, m.Name, in, *in.Loader),
+			Rr:      gogen.TemplateRenderer{Tmpl: templates},
 		}
-		astBody := &generator{
-			baseGen: in.newBaseGen(gm.ModulePath, midPath, m.Name),
-			rr:      templateRenderer{t: templates},
+		astBody := &gogen.Generator{
+			BaseGen: gogen.NewBaseGen(gm.ModulePath, midPath, m.Name, in, *in.Loader),
+			Rr:      gogen.TemplateRenderer{Tmpl: templates},
 		}
 		declsNames := []string{}
 		for k := range m.Module_.Decls {
@@ -74,20 +77,20 @@ func thunk_gen_module(
 		for _, k := range declsNames {
 			decl := m.Module_.Decls[k]
 			jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
-			gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
+			gct, err := goadl.GetAnnotation(decl.Annotations, gogen.GoCustomTypeSN, jb)
 			if err != nil {
 				panic(err)
 			}
 			if gct != nil {
 				if !in.ExcludeAst {
-					astBody.generalTexpr(astBody, decl)
-					astBody.generalReg(astBody, decl)
+					generalTexpr(astBody, decl)
+					generalReg(astBody, decl)
 				}
 			} else {
-				declBody.generalDeclV3(declBody, decl)
+				generalDeclV3(declBody, decl)
 				if !in.ExcludeAst {
-					astBody.generalTexpr(astBody, decl)
-					astBody.generalReg(astBody, decl)
+					generalTexpr(astBody, decl)
+					generalReg(astBody, decl)
 				}
 			}
 		}
@@ -117,28 +120,10 @@ func thunk_gen_module(
 	return fn
 }
 
-func (in *GoTypes) newBaseGen(
-	modulePath, midPath string,
-	moduleName string,
-) *baseGen {
-	imports := newImports(
-		in.reservedImports(),
-		in.Loader.BundleMaps,
-	)
-	return &baseGen{
-		cli:        in,
-		resolver:   in.Loader.Resolver,
-		modulePath: modulePath,
-		midPath:    midPath,
-		moduleName: moduleName,
-		imports:    imports,
-	}
-}
-
 func (in *GoTypes) writeFile(
 	moduleName string,
 	modCodeGenPkg string,
-	body *generator,
+	body *gogen.Generator,
 	path string,
 	noGoFmt bool,
 	genAst bool,
@@ -158,32 +143,32 @@ func (in *GoTypes) writeFile(
 		}
 	}
 
-	header := &generator{
-		baseGen: body.baseGen,
-		rr:      templateRenderer{t: templates},
+	header := &gogen.Generator{
+		BaseGen: body.BaseGen,
+		Rr:      gogen.TemplateRenderer{Tmpl: templates},
 	}
-	header.rr.Render(headerParams{
+	header.Rr.Render(headerParams{
 		Pkg: modCodeGenPkg,
 	})
-	useImports := []importSpec{}
-	for _, spec := range body.imports.specs {
-		if body.imports.used[spec.Path] {
+	useImports := []goimports.ImportSpec{}
+	for _, spec := range body.Imports.Specs {
+		if body.Imports.Used[spec.Path] {
 			useImports = append(useImports, spec)
 		}
 	}
 	if _, ok := in.specialTexpr()[moduleName]; genAst && ok && in.StdLibGen {
-		useImports = append(useImports, importSpec{
+		useImports = append(useImports, goimports.ImportSpec{
 			Path:    filepath.Join(in.GoAdlPath, strings.ReplaceAll(moduleName, ".", "/")),
 			Name:    ".",
 			Aliased: true,
 		})
 	}
 
-	header.rr.Render(importsParams{
+	header.Rr.Render(importsParams{
 		Imports: useImports,
 	})
-	header.rr.buf.Write(body.rr.Bytes())
-	unformatted := header.rr.Bytes()
+	header.Rr.Buf.Write(body.Rr.Bytes())
+	unformatted := header.Rr.Bytes()
 
 	var formatted []byte
 	if !noGoFmt {
@@ -218,8 +203,8 @@ func (in *GoTypes) writeFile(
 	return err
 }
 
-func (in *GoTypes) reservedImports() []importSpec {
-	return []importSpec{
+func (in *GoTypes) ReservedImports() []goimports.ImportSpec {
+	return []goimports.ImportSpec{
 		{Path: "encoding/json"},
 		{Path: "reflect"},
 		{Path: "strings"},
@@ -239,22 +224,43 @@ func (in *GoTypes) specialTexpr() map[string]struct{} {
 	}
 }
 
-type generator struct {
-	*baseGen
-	rr        templateRenderer
-	genAdlAst bool
+func (bg *GoTypes) GoImport(pkg string, currModuleName string, imports goimports.Imports) (string, error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			fmt.Fprintf(os.Stderr, "ERROR in GoImport %v\n%v", r, string(debug.Stack()))
+			panic(r)
+		}
+	}()
+	if _, ok := bg.specialTexpr()[currModuleName]; ok && bg._GoTypes.StdLibGen && pkg == "goadl" {
+		return "", nil
+	}
+	if spec, ok := imports.ByName(pkg); !ok {
+		return "", fmt.Errorf("unknown import %s", pkg)
+	} else {
+		imports.AddPath(spec.Path)
+		return spec.Name + ".", nil
+	}
 }
 
-func (base *baseGen) generalDeclV3(
-	in *generator,
+func (bg *GoTypes) IsStdLibGen() bool {
+	return bg._GoTypes.StdLibGen
+}
+
+func (bg *GoTypes) GoAdlImportPath() string {
+	return bg._GoTypes.GoAdlPath
+}
+
+func generalDeclV3(
+	in *gogen.Generator,
 	decl adlast.Decl,
 ) {
-	typeParams := typeParamsFromDecl(decl)
+	typeParams := gogen.TypeParamsFromDecl(decl)
 	adlast.Handle_DeclType[any](
 		decl.Type_,
 		func(s adlast.Struct) any {
 
-			in.rr.Render(structParams{
+			in.Rr.Render(structParams{
 				G:          in,
 				Name:       decl.Name,
 				TypeParams: typeParams,
@@ -266,7 +272,7 @@ func (base *baseGen) generalDeclV3(
 			return nil
 		},
 		func(u adlast.Union) any {
-			in.rr.Render(unionParams{
+			in.Rr.Render(unionParams{
 				G:          in,
 				Name:       decl.Name,
 				TypeParams: typeParams,
@@ -283,7 +289,7 @@ func (base *baseGen) generalDeclV3(
 					return nil
 				}
 			}
-			in.rr.Render(typeAliasParams{
+			in.Rr.Render(typeAliasParams{
 				G:           in,
 				Name:        decl.Name,
 				TypeParams:  typeParams,
@@ -293,7 +299,7 @@ func (base *baseGen) generalDeclV3(
 			return nil
 		},
 		func(nt adlast.NewType) any {
-			in.rr.Render(newTypeParams{
+			in.Rr.Render(newTypeParams{
 				G:           in,
 				Name:        decl.Name,
 				TypeParams:  typeParams,
@@ -306,8 +312,8 @@ func (base *baseGen) generalDeclV3(
 	)
 }
 
-func (base *baseGen) generalTexpr(
-	body *generator,
+func generalTexpr(
+	body *gogen.Generator,
 	decl adlast.Decl,
 ) {
 	if typ, ok := decl.Type_.Cast_type_(); ok {
@@ -317,43 +323,43 @@ func (base *baseGen) generalTexpr(
 		}
 	}
 	type_name := decl.Name
-	tp := typeParamsFromDecl(decl)
+	tp := gogen.TypeParamsFromDecl(decl)
 
 	jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
-	gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
+	gct, err := goadl.GetAnnotation(decl.Annotations, gogen.GoCustomTypeSN, jb)
 	if err != nil {
 		panic(err)
 	}
 	if gct != nil {
 		pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
-		spec := importSpec{
+		spec := goimports.ImportSpec{
 			Path:    gct.Gotype.Import_path,
 			Name:    gct.Gotype.Pkg,
 			Aliased: gct.Gotype.Pkg != pkg,
 		}
-		base.imports.addSpec(spec)
+		body.Imports.AddSpec(spec)
 		type_name = gct.Gotype.Pkg + "." + gct.Gotype.Name
-		tp.type_constraints = gct.Gotype.Type_constraints
+		tp.TypeConstraints = gct.Gotype.Type_constraints
 	}
 
 	// tp.stdlib = base.cli.StdLibGen
-	body.rr.Render(aTexprParams{
+	body.Rr.Render(aTexprParams{
 		G:          body,
-		ModuleName: base.moduleName,
+		ModuleName: body.ModuleName,
 		Name:       decl.Name,
 		TypeName:   type_name,
 		TypeParams: tp,
 	})
 }
 
-func (base *baseGen) generalReg(
-	body *generator,
+func generalReg(
+	body *gogen.Generator,
 	decl adlast.Decl,
 ) {
-	tp := typeParamsFromDecl(decl)
-	body.rr.Render(scopedDeclParams{
+	tp := gogen.TypeParamsFromDecl(decl)
+	body.Rr.Render(scopedDeclParams{
 		G:          body,
-		ModuleName: base.moduleName,
+		ModuleName: body.ModuleName,
 		Name:       decl.Name,
 		Decl:       decl,
 		TypeParams: tp,
@@ -363,7 +369,7 @@ func (base *baseGen) generalReg(
 func makeFieldParam(
 	f adlast.Field,
 	declName string,
-	gen *generator,
+	gen *gogen.Generator,
 ) fieldParams {
 	isVoid := false
 	if pr, ok := f.TypeExpr.TypeRef.Cast_primitive(); ok {
@@ -394,10 +400,6 @@ func makeFieldParam(
 		},
 		nil,
 	)
-}
-
-func (in *generator) ToTitle(s string) string {
-	return strings.ToTitle(s)
 }
 
 func containsTypeToken(str adlast.Struct) bool {

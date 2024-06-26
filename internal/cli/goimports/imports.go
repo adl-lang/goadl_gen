@@ -1,7 +1,6 @@
-package gotypes
+package goimports
 
 import (
-	"fmt"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -10,26 +9,26 @@ import (
 	"github.com/adl-lang/goadlc/internal/cli/loader"
 )
 
-type imports struct {
+type Imports struct {
 	// importMap map[string]importSpec
 	bundleMap []loader.BundleMap
-	specs     []importSpec
-	used      map[string]bool // keyed on import path
+	Specs     []ImportSpec
+	Used      map[string]bool // keyed on import path
 }
 
-type importSpec struct {
+type ImportSpec struct {
 	Path    string
 	Aliased bool
 	Name    string
 }
 
-func newImports(
-	reserved []importSpec,
+func NewImports(
+	reserved []ImportSpec,
 	bundleMap []loader.BundleMap,
 	// importMap map[string]importSpec,
-) imports {
-	im := imports{
-		used:      make(map[string]bool),
+) Imports {
+	im := Imports{
+		Used:      make(map[string]bool),
 		bundleMap: bundleMap,
 	}
 	for i := range reserved {
@@ -37,69 +36,57 @@ func newImports(
 		if !spec.Aliased {
 			spec.Name = pkgFromImport(spec.Path)
 		}
-		im.specs = append(im.specs, spec)
+		im.Specs = append(im.Specs, spec)
 	}
 	return im
 }
 
-func (bg *baseGen) GoImport(pkg string) (string, error) {
-	if _, ok := bg.cli.specialTexpr()[bg.moduleName]; ok && bg.cli.StdLibGen && pkg == "goadl" {
-		return "", nil
-	}
-	if spec, ok := bg.imports.byName(pkg); !ok {
-		return "", fmt.Errorf("unknown import %s", pkg)
-	} else {
-		bg.imports.addPath(spec.Path)
-		return spec.Name + ".", nil
-	}
-}
-
-func (spec importSpec) String() string {
+func (spec ImportSpec) String() string {
 	if !spec.Aliased {
 		return strconv.Quote(spec.Path)
 	}
 	return spec.Name + " " + strconv.Quote(spec.Path)
 }
 
-func (i *imports) byPath(path string) (spec importSpec, ok bool) {
-	for _, spec = range i.specs {
+func (i *Imports) ByPath(path string) (spec ImportSpec, ok bool) {
+	for _, spec = range i.Specs {
 		if spec.Path == path {
 			return spec, true
 		}
 	}
-	return importSpec{}, false
+	return ImportSpec{}, false
 }
 
-func (i *imports) byName(name string) (spec importSpec, ok bool) {
-	for _, spec = range i.specs {
+func (i *Imports) ByName(name string) (spec ImportSpec, ok bool) {
+	for _, spec = range i.Specs {
 		if spec.Name == name {
 			return spec, true
 		}
 	}
-	return importSpec{}, false
+	return ImportSpec{}, false
 }
 
-func (i *imports) addSpec(spec importSpec) (name string) {
+func (i *Imports) AddSpec(spec ImportSpec) (name string) {
 	spec0 := i.reserveSpec(spec)
-	i.used[spec0.Path] = true
+	i.Used[spec0.Path] = true
 	return spec0.Name
 }
 
-func (i *imports) addModule(module string, modulePath, midPath string) (name string) {
+func (i *Imports) AddModule(module string, modulePath, midPath string) (name string) {
 	for _, bun := range i.bundleMap {
 		if strings.HasPrefix(module, bun.AdlModuleNamePrefix) {
 			parts := strings.Split(module, ".")
 			name := parts[len(parts)-1]
-			spec := importSpec{
+			spec := ImportSpec{
 				Path:    filepath.Join(bun.GoModPath, strings.ReplaceAll(module, ".", "/")),
 				Name:    name,
 				Aliased: false,
 			}
-			if i.used[spec.Path] {
+			if i.Used[spec.Path] {
 				return spec.Name
 			}
 			spec0 := i.reserveSpec(spec)
-			i.used[spec0.Path] = true
+			i.Used[spec0.Path] = true
 			return spec0.Name
 		}
 	}
@@ -113,24 +100,24 @@ func (i *imports) addModule(module string, modulePath, midPath string) (name str
 	// }
 	if midPath != "" {
 		pkg := modulePath + "/" + midPath + "/" + strings.ReplaceAll(module, ".", "/")
-		return i.addPath(pkg)
+		return i.AddPath(pkg)
 	}
 	pkg := modulePath + "/" + strings.ReplaceAll(module, ".", "/")
-	return i.addPath(pkg)
+	return i.AddPath(pkg)
 }
 
-func (i *imports) addPath(path string) (name string) {
+func (i *Imports) AddPath(path string) (name string) {
 	spec := i.reserve(path)
-	i.used[spec.Path] = true
+	i.Used[spec.Path] = true
 	return spec.Name
 }
 
 // reserve adds an import spec without marking it as used.
-func (i *imports) reserve(path string) importSpec {
-	if ispec, ok := i.byPath(path); ok {
+func (i *Imports) reserve(path string) ImportSpec {
+	if ispec, ok := i.ByPath(path); ok {
 		return ispec
 	}
-	spec := importSpec{
+	spec := ImportSpec{
 		Path:    path,
 		Name:    pkgFromImport(path),
 		Aliased: false,
@@ -138,23 +125,23 @@ func (i *imports) reserve(path string) importSpec {
 	return i.reserveSpec(spec)
 }
 
-func (i *imports) reserveSpec(spec importSpec) importSpec {
-	if ispec, ok := i.byPath(spec.Path); ok {
+func (i *Imports) reserveSpec(spec ImportSpec) ImportSpec {
+	if ispec, ok := i.ByPath(spec.Path); ok {
 		return ispec
 	}
-	if _, found := i.byName(spec.Name); found {
+	if _, found := i.ByName(spec.Name); found {
 		base := spec.Name
 		spec.Aliased = true
 		n := uint64(1)
 		for {
 			n++
 			spec.Name = base + strconv.FormatUint(n, 10)
-			if _, found = i.byName(spec.Name); !found {
+			if _, found = i.ByName(spec.Name); !found {
 				break
 			}
 		}
 	}
-	i.specs = append(i.specs, spec)
+	i.Specs = append(i.Specs, spec)
 	return spec
 }
 

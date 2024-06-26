@@ -1,4 +1,4 @@
-package gotypes
+package gogen
 
 import (
 	"bytes"
@@ -14,10 +14,13 @@ import (
 	"github.com/adl-lang/goadl_rt/v3/customtypes"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
 	"github.com/adl-lang/goadl_rt/v3/sys/types"
+
+	"github.com/adl-lang/goadlc/internal/cli/goimports"
+
 	"github.com/samber/lo"
 )
 
-func (*generator) JsonEncode(val any) string {
+func (*Generator) JsonEncode(val any) string {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	err := enc.Encode(val)
@@ -27,7 +30,7 @@ func (*generator) JsonEncode(val any) string {
 	return string(bytes.Trim(buf.Bytes(), "\n"))
 }
 
-func (bg *generator) GoDeclValue(val adlast.Decl) string {
+func (bg *Generator) GoDeclValue(val adlast.Decl) string {
 	defer func() {
 		r := recover()
 		if r != nil {
@@ -50,13 +53,17 @@ func (bg *generator) GoDeclValue(val adlast.Decl) string {
 		fmt.Fprintf(os.Stderr, "!!!! decode error %v\n", err)
 		panic(err)
 	}
-	bg.genAdlAst = true
+	gvg := goval_gen{
+		bg,
+		[]string{},
+		true,
+	}
 	// TODO make it so we GoValue can take both an any and a decl
 	// or make it so the encoder can encode to an any
-	return bg.GoValue(val.Annotations, goadl.Texpr_Decl().Value, m)
+	return gvg.goValue(val.Annotations, goadl.Texpr_Decl().Value, m)
 }
 
-func (bg *generator) GoTexprValue(val adlast.TypeExpr, anns customtypes.MapMap[adlast.ScopedName, any]) string {
+func (bg *Generator) GoTexprValue(val adlast.TypeExpr, anns customtypes.MapMap[adlast.ScopedName, any]) string {
 	// defer func() {
 	// 	r := recover()
 	// 	if r != nil {
@@ -87,11 +94,12 @@ func (bg *generator) GoTexprValue(val adlast.TypeExpr, anns customtypes.MapMap[a
 }
 
 type goval_gen struct {
-	*generator
-	path []string
+	*Generator
+	path      []string
+	genAdlAst bool
 }
 
-func (bg *generator) GoValue(
+func (bg *Generator) GoValue(
 	anns adlast.Annotations,
 	te adlast.TypeExpr,
 	val any,
@@ -99,6 +107,7 @@ func (bg *generator) GoValue(
 	gvg := goval_gen{
 		bg,
 		[]string{},
+		false,
 	}
 	defer func() {
 		r := recover()
@@ -127,12 +136,12 @@ func (bg *goval_gen) goValue(
 		},
 		func(ref adlast.ScopedName) string {
 			gt := bg.GoType(te, anns)
-			decl, ok := bg.resolver(ref)
+			decl, ok := bg.Resolver(ref)
 			if !ok {
 				panic(fmt.Errorf("cannot resolve %v", ref))
 			}
 			tbind := goadl.CreateDecBoundTypeParams(goadl.TypeParamsFromDecl(*decl), te.Parameters)
-			if goadl.HasAnnotation(decl.Annotations, goCustomTypeSN) {
+			if goadl.HasAnnotation(decl.Annotations, GoCustomTypeSN) {
 				monoTe, _ := goadl.SubstituteTypeBindings(tbind, te)
 				return bg.goCustomType(decl, monoTe, gt, val)
 			}
@@ -160,30 +169,30 @@ func (bg *goval_gen) goValue(
 	)
 }
 
-func (bg *generator) goCustomType(
+func (bg *Generator) goCustomType(
 	decl *adlast.Decl,
 	monoTe adlast.TypeExpr,
 	gt goTypeExpr,
 	val any,
 ) string {
 	jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
-	gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
+	gct, err := goadl.GetAnnotation(decl.Annotations, GoCustomTypeSN, jb)
 	if err != nil {
 		panic(err)
 	}
 	{
 		pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
-		spec := importSpec{
+		spec := goimports.ImportSpec{
 			Path:    gct.Gotype.Import_path,
 			Name:    gct.Gotype.Pkg,
 			Aliased: gct.Gotype.Pkg != pkg,
 		}
-		bg.imports.addSpec(spec)
+		bg.Imports.AddSpec(spec)
 	}
 
-	gen := &generator{
-		baseGen: bg.baseGen,
-		rr:      templateRenderer{t: templates},
+	gen := &Generator{
+		BaseGen: bg.BaseGen,
+		Rr:      TemplateRenderer{Tmpl: templates},
 	}
 
 	typeExprStrs := lo.Map[adlast.TypeExpr, string](monoTe.Parameters, func(a adlast.TypeExpr, _ int) string {
@@ -192,27 +201,27 @@ func (bg *generator) goCustomType(
 
 	{
 		pkg := gct.Helpers.Import_path[strings.LastIndex(gct.Helpers.Import_path, "/")+1:]
-		spec := importSpec{
+		spec := goimports.ImportSpec{
 			Path:    gct.Helpers.Import_path,
 			Name:    gct.Helpers.Pkg,
 			Aliased: gct.Helpers.Pkg != pkg,
 		}
-		bg.imports.addSpec(spec)
+		bg.Imports.AddSpec(spec)
 	}
-	gen.rr.Render(custTypeConstructionParams{
+	gen.Rr.Render(custTypeConstructionParams{
 		G:                gen,
 		Name:             decl.Name,
-		ModuleName:       bg.moduleName,
+		ModuleName:       bg.ModuleName,
 		TypeParams:       gt.TypeParams,
 		AnyValue:         fmt.Sprintf("%+#v", val),
 		CustomType:       gct.Gotype.Pkg + "." + gct.Gotype.Name,
 		CustomTypeHelper: gct.Helpers.Pkg + "." + gct.Helpers.Name,
 		TypeExprStrs:     typeExprStrs,
 	})
-	return gen.rr.buf.String()
+	return gen.Rr.Buf.String()
 }
 
-func (bg *generator) strRep(te adlast.TypeExpr) string {
+func (bg *Generator) strRep(te adlast.TypeExpr) string {
 	br := adlast.Handle_TypeRef[string](
 		te.TypeRef,
 		func(primitive string) string {
@@ -226,7 +235,7 @@ func (bg *generator) strRep(te adlast.TypeExpr) string {
 		},
 		nil,
 	)
-	bg.GoImport("adlast")
+	bg.Cli.GoImport("adlast", bg.ModuleName, bg.Imports)
 	params := lo.Map[adlast.TypeExpr, string](te.Parameters, func(a adlast.TypeExpr, _ int) string {
 		return bg.strRep(a)
 	})
@@ -234,10 +243,10 @@ func (bg *generator) strRep(te adlast.TypeExpr) string {
 }
 
 type custTypeConstructionParams struct {
-	G                *generator
+	G                *Generator
 	ModuleName       string
 	Name             string
-	TypeParams       typeParam
+	TypeParams       TypeParam
 	AnyValue         string
 	CustomType       string
 	CustomTypeHelper string
@@ -255,7 +264,7 @@ func (bg *goval_gen) goStruct(
 		bg.path = append(bg.path, fld.Name)
 		ret := []string{}
 		if bg.genAdlAst && fld.Name == "annotations" {
-			bg.GoImport("customtypes")
+			bg.Cli.GoImport("customtypes", bg.ModuleName, bg.Imports)
 			anns := mval[fld.SerializedName].([]any)
 			annvs := []string{}
 			for _, mapEntry := range anns {
@@ -418,7 +427,7 @@ func (bg *goval_gen) goValuePrimitive(
 	// }
 	switch primitive {
 	case "TypeToken":
-		pkg, err := bg.GoImport("adlast")
+		pkg, err := bg.Cli.GoImport("adlast", bg.ModuleName, bg.Imports)
 		if err != nil {
 			panic(err)
 		}
@@ -469,7 +478,7 @@ func (bg *goval_gen) goValuePrimitive(
 		if val == nil {
 			return "nil"
 		}
-		gl, _ := bg.GoImport("goadl")
+		gl, _ := bg.Cli.GoImport("goadl", bg.ModuleName, bg.Imports)
 		return gl + "Addr(" + bg.goValue(anns, te.Parameters[0], val) + ")"
 	}
 	panic("Unknown GoValuePrimitive")

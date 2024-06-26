@@ -12,6 +12,7 @@ struct GoApi {
     @SerializedName "-"
     Nullable<GoModResult> goMod = null;
     sys.adlast.ScopedName ApiStruct;
+    String Outputdir;
 };
 
 };

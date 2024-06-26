@@ -1,16 +1,13 @@
 package gotypes
 
 import (
-	"bytes"
 	"embed"
-	"encoding/json"
-	"fmt"
-	"os"
-	"reflect"
 	"strings"
 	"text/template"
 
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
+	"github.com/adl-lang/goadlc/internal/cli/gogen"
+	"github.com/adl-lang/goadlc/internal/cli/goimports"
 )
 
 func public(s string) string {
@@ -18,13 +15,6 @@ func public(s string) string {
 		return ""
 	}
 	return strings.ToUpper(s[:1]) + s[1:]
-}
-
-func goEscape(n string) string {
-	if g, h := goKeywords[n]; h {
-		return g
-	}
-	return n
 }
 
 var (
@@ -39,54 +29,24 @@ var (
 				"lower": func(s string) string {
 					return strings.ToLower(s)
 				},
-				"goEscape": goEscape,
 			}).
 			ParseFS(templateFS, "templates/*"))
 )
 
-type templateRenderer struct {
-	buf bytes.Buffer
-	t   *template.Template
-}
-
-// Render calls ExecuteTemplate to render to its buffer.
-func (tr *templateRenderer) Render(params any) {
-	// Derive the template name from the name of the underlying type of
-	// params:
-	typeName := reflect.TypeOf(params).Name()
-	name := typeName[:len(typeName)-len("Params")]
-	err := tr.t.ExecuteTemplate(&tr.buf, name, params)
-	if err != nil {
-		data, _ := json.Marshal(params)
-		fmt.Fprintf(os.Stderr, "error executing template -- template: %s\nerror: %v\n%s", name, err, data)
-		panic(err)
-	}
-	// return nil
-}
-
-func (tr *templateRenderer) RenderTemplate(name string, params any) error {
-	return tr.t.ExecuteTemplate(&tr.buf, name, params)
-}
-
-// Bytes returns the accumulated bytes.
-func (tr *templateRenderer) Bytes() []byte {
-	return tr.buf.Bytes()
-}
-
 type scopedDeclParams struct {
-	G          *generator
+	G          *gogen.Generator
 	ModuleName string
 	Name       string
-	TypeParams typeParam
+	TypeParams gogen.TypeParam
 	Decl       adlast.Decl
 }
 
 type aTexprParams struct {
-	G          *generator
+	G          *gogen.Generator
 	ModuleName string
 	Name       string
 	TypeName   string
-	TypeParams typeParam
+	TypeParams gogen.TypeParam
 }
 
 type headerParams struct {
@@ -95,37 +55,37 @@ type headerParams struct {
 
 type importsParams struct {
 	// Rt      string
-	Imports []importSpec
+	Imports []goimports.ImportSpec
 }
 
 type structParams struct {
-	G                 *generator
+	G                 *gogen.Generator
 	Name              string
-	TypeParams        typeParam
+	TypeParams        gogen.TypeParam
 	Fields            []fieldParams
 	ContainsTypeToken bool
 }
 
 type unionParams struct {
-	G          *generator
+	G          *gogen.Generator
 	Name       string
-	TypeParams typeParam
+	TypeParams gogen.TypeParam
 	Branches   []fieldParams
 }
 
 type fieldParams struct {
 	adlast.Field
 	DeclName   string
-	G          *generator
+	G          *gogen.Generator
 	HasDefault bool
 	Just       any
 	IsVoid     bool
 }
 
 type typeAliasParams struct {
-	G           *generator
+	G           *gogen.Generator
 	Name        string
-	TypeParams  typeParam
+	TypeParams  gogen.TypeParam
 	TypeExpr    adlast.TypeExpr
 	Annotations adlast.Annotations
 }

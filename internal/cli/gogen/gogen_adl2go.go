@@ -1,4 +1,4 @@
-package gotypes
+package gogen
 
 import (
 	"fmt"
@@ -8,14 +8,15 @@ import (
 
 	goadl "github.com/adl-lang/goadl_rt/v3"
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
+	"github.com/adl-lang/goadlc/internal/cli/goimports"
 	"github.com/samber/lo"
 )
 
 type goTypeExpr struct {
 	Pkg             string
 	Type            string
-	TypeParams      typeParam
-	UnionTypeParams typeParam
+	TypeParams      TypeParam
+	UnionTypeParams TypeParam
 	IsTypeParam     bool
 }
 
@@ -46,20 +47,20 @@ func (g goTypeExpr) sansTypeParam() string {
 	return g.Type
 }
 
-func (in *baseGen) GoType(
+func (in *BaseGen) GoType(
 	typeExpr adlast.TypeExpr,
 	anns adlast.Annotations,
 ) goTypeExpr {
-	unionTypeParams := typeParam{}
+	unionTypeParams := TypeParam{}
 	gotype := in.goType(typeExpr, &unionTypeParams, anns)
-	unionTypeParams.type_constraints = get_type_constraints(anns)
+	unionTypeParams.TypeConstraints = get_type_constraints(anns)
 	gotype.UnionTypeParams = unionTypeParams
 	return gotype
 }
 
-func (in *baseGen) goType(
+func (in *BaseGen) goType(
 	typeExpr adlast.TypeExpr,
-	unionTypeParams *typeParam,
+	unionTypeParams *TypeParam,
 	anns adlast.Annotations,
 ) goTypeExpr {
 	defer func() {
@@ -76,29 +77,29 @@ func (in *baseGen) goType(
 			return _type
 		},
 		func(tp string) goTypeExpr {
-			if !lo.ContainsBy(unionTypeParams.params, func(it param) bool {
-				return it.name == tp
+			if !lo.ContainsBy(unionTypeParams.Params, func(it param) bool {
+				return it.Name == tp
 			}) {
-				unionTypeParams.params = append(unionTypeParams.params, param{name: tp})
+				unionTypeParams.Params = append(unionTypeParams.Params, param{Name: tp})
 			}
 			return goTypeExpr{
 				"",
 				tp,
-				typeParam{
-					params: []param{{name: tp, concrete: false}},
+				TypeParam{
+					Params: []param{{Name: tp, Concrete: false}},
 					// type_constraints: []string{},
-					type_constraints: get_type_constraints(anns),
+					TypeConstraints: get_type_constraints(anns),
 				},
-				typeParam{},
+				TypeParam{},
 				true,
 			}
 		},
 		func(ref adlast.ScopedName) goTypeExpr {
-			decl, ok := in.resolver(ref)
+			decl, ok := in.Resolver(ref)
 			if !ok {
 				panic(fmt.Errorf("cannot find decl '%v", ref))
 			}
-			if goadl.HasAnnotation(decl.Annotations, goCustomTypeSN) {
+			if goadl.HasAnnotation(decl.Annotations, GoCustomTypeSN) {
 				return in.gotype_ref_customtype(decl, typeExpr, unionTypeParams, anns)
 			}
 			// go can't have typeParam on lhs in type alias, so replace with concrete type
@@ -111,8 +112,8 @@ func (in *baseGen) goType(
 			}
 
 			packageName := ""
-			if in.moduleName != ref.ModuleName {
-				packageName = in.imports.addModule(ref.ModuleName, in.modulePath, in.midPath)
+			if in.ModuleName != ref.ModuleName {
+				packageName = in.Imports.AddModule(ref.ModuleName, in.ModulePath, in.MidPath)
 			}
 			goTypeParams := lo.Map(typeExpr.Parameters, func(a adlast.TypeExpr, _ int) goTypeExpr {
 				return in.goType(a, unionTypeParams, anns)
@@ -121,9 +122,9 @@ func (in *baseGen) goType(
 			return goTypeExpr{
 				Pkg:  packageName,
 				Type: ref.Name,
-				TypeParams: typeParam{
-					params:           lo.Map(goTypeParams, func(a goTypeExpr, _ int) param { return param{name: a.String(), concrete: !a.IsTypeParam} }),
-					type_constraints: get_type_constraints(anns),
+				TypeParams: TypeParam{
+					Params:          lo.Map(goTypeParams, func(a goTypeExpr, _ int) param { return param{Name: a.String(), Concrete: !a.IsTypeParam} }),
+					TypeConstraints: get_type_constraints(anns),
 				},
 				IsTypeParam: false,
 			}
@@ -145,67 +146,67 @@ func get_type_constraints(anns adlast.Annotations) []string {
 	return []string{}
 }
 
-func (in *baseGen) gotype_ref_customtype(
+func (in *BaseGen) gotype_ref_customtype(
 	decl *adlast.Decl,
 	typeExpr adlast.TypeExpr,
-	unionTypeParams *typeParam,
+	unionTypeParams *TypeParam,
 	anns adlast.Annotations,
 ) goTypeExpr {
 	jb := goadl.CreateJsonDecodeBinding(goadl.Texpr_GoCustomType(), goadl.RESOLVER)
-	gct, err := goadl.GetAnnotation(decl.Annotations, goCustomTypeSN, jb)
+	gct, err := goadl.GetAnnotation(decl.Annotations, GoCustomTypeSN, jb)
 	if err != nil {
 		panic(fmt.Errorf("error getting go_custom_type annotation for %v. err : %w", decl.Name, err))
 	}
 	pkg := gct.Gotype.Import_path[strings.LastIndex(gct.Gotype.Import_path, "/")+1:]
-	spec := importSpec{
+	spec := goimports.ImportSpec{
 		Path:    gct.Gotype.Import_path,
 		Name:    gct.Gotype.Pkg,
 		Aliased: gct.Gotype.Pkg != pkg,
 	}
-	in.imports.addSpec(spec)
+	in.Imports.AddSpec(spec)
 	got := goTypeExpr{
 		Pkg:  gct.Gotype.Pkg,
 		Type: gct.Gotype.Name,
-		TypeParams: typeParam{
-			params: lo.Map(typeExpr.Parameters, func(a adlast.TypeExpr, _ int) param {
+		TypeParams: TypeParam{
+			Params: lo.Map(typeExpr.Parameters, func(a adlast.TypeExpr, _ int) param {
 				pt := in.goType(a, unionTypeParams, anns)
 				return param{pt.String(), !pt.IsTypeParam}
 			}),
 			// type_constraints: get_type_constraints(anns),
-			type_constraints: []string{},
+			TypeConstraints: []string{},
 		},
 		IsTypeParam: false,
 	}
 	return got
 }
 
-func (in *baseGen) PrimitiveMap(
+func (in *BaseGen) PrimitiveMap(
 	p string,
 	params []adlast.TypeExpr,
-	unionTypeParams *typeParam,
+	unionTypeParams *TypeParam,
 	anns adlast.Annotations,
 ) goTypeExpr {
 	r, has := primitiveMap[p]
 	if has {
-		return goTypeExpr{"", r, typeParam{}, typeParam{}, false}
+		return goTypeExpr{"", r, TypeParam{}, TypeParam{}, false}
 	}
 	elem := in.goType(params[0], unionTypeParams, anns)
 	switch p {
 	case "TypeToken":
-		pkg, err := in.GoImport("adlast")
+		pkg, err := in.Cli.GoImport("adlast", in.ModuleName, in.Imports)
 		if err != nil {
 			panic(err)
 		}
-		tp := typeParam{
-			params: []param{{name: elem.String(), concrete: !elem.IsTypeParam}},
+		tp := TypeParam{
+			Params: []param{{Name: elem.String(), Concrete: !elem.IsTypeParam}},
 		}
 		return goTypeExpr{"", pkg + "ATypeExpr", tp, tp, false}
 	case "Vector":
-		return goTypeExpr{"", "[]" + elem.sansTypeParam(), elem.TypeParams, typeParam{}, elem.IsTypeParam}
+		return goTypeExpr{"", "[]" + elem.sansTypeParam(), elem.TypeParams, TypeParam{}, elem.IsTypeParam}
 	case "StringMap":
-		return goTypeExpr{"", "map[string]" + elem.sansTypeParam(), elem.TypeParams, typeParam{}, elem.IsTypeParam}
+		return goTypeExpr{"", "map[string]" + elem.sansTypeParam(), elem.TypeParams, TypeParam{}, elem.IsTypeParam}
 	case "Nullable":
-		return goTypeExpr{"", "*" + elem.sansTypeParam(), elem.TypeParams, typeParam{}, elem.IsTypeParam}
+		return goTypeExpr{"", "*" + elem.sansTypeParam(), elem.TypeParams, TypeParam{}, elem.IsTypeParam}
 	}
 	panic(fmt.Errorf("no such primitive '%s'", p))
 }
@@ -238,7 +239,7 @@ var goKeywords = map[string]string{
 	"var":         "var_",
 }
 
-func (*baseGen) GoEscape(n string) string {
+func (*BaseGen) GoEscape(n string) string {
 	if g, h := goKeywords[n]; h {
 		return g
 	}

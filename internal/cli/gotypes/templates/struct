@@ -11,7 +11,7 @@ type _{{$name}}{{$decl.TypeParams.LSide}} struct {
 }
 
 func MakeAll_{{$name}}{{.TypeParams.LSide}}(
-{{range .Fields}}{{if not .IsVoid}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr .Annotations}},
+{{range .Fields}}{{if not .IsVoid}}	{{.Name | lower | .G.GoEscape}} {{$G.GoType .TypeExpr .Annotations}},
 {{end}}{{end -}}
 ) {{$name}}{{.TypeParams.RSide}} {
 	return {{$name}}{{.TypeParams.RSide}}{
@@ -20,7 +20,7 @@ func MakeAll_{{$name}}{{.TypeParams.LSide}}(
 {{- if .IsVoid -}}
 {{$type := $G.GoType .TypeExpr .Annotations}}			{{.Name | public}}: struct{}{},
 {{- else -}}
-{{$type := $G.GoType .TypeExpr .Annotations}}			{{.Name | public}}: {{.Name | lower | goEscape}},
+{{$type := $G.GoType .TypeExpr .Annotations}}			{{.Name | public}}: {{.Name | lower | .G.GoEscape}},
 {{- end}}
 {{end}}	},
 		}
@@ -30,12 +30,12 @@ func MakeAll_{{$name}}{{.TypeParams.LSide}}(
 // struct {{$name}} contains at least one TypeToken, not generating Make_ funcs
 {{else}}
 func Make_{{$name}}{{.TypeParams.LSide}}(
-{{range .Fields}}{{if not .IsVoid}}{{if not .HasDefault}}	{{.Name | lower | goEscape}} {{$G.GoType .TypeExpr .Annotations}},
+{{range .Fields}}{{if not .IsVoid}}{{if not .HasDefault}}	{{.Name | lower | .G.GoEscape}} {{$G.GoType .TypeExpr .Annotations}},
 {{end}}{{end}}{{end -}}
 ) {{$name}}{{.TypeParams.RSide}} {
 	ret := {{$name}}{{.TypeParams.RSide}}{
 		_{{$name}}{{.TypeParams.RSide}}{
-{{range .Fields}}{{$type := $G.GoType .TypeExpr .Annotations}} {{if not .IsVoid}} {{if not .HasDefault}}		{{.Name | public}}: {{.Name | lower | goEscape}},
+{{range .Fields}}{{$type := $G.GoType .TypeExpr .Annotations}} {{if not .IsVoid}} {{if not .HasDefault}}		{{.Name | public}}: {{.Name | lower | .G.GoEscape}},
 {{else}}		{{.Name | public}}: ((*{{$name}}{{$decl.TypeParams.RSide}})(nil)).Default_{{.Name}}(),
 {{end}}
 {{- else -}}
