@@ -1,0 +1,1 @@
+	Get{{.Name | public}}() {{.StructName | public}}_Service[{{.G.GoType .C .Annotations}}, {{.G.GoType .S .Annotations}}]

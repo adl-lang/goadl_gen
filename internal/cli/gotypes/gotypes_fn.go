@@ -2,8 +2,6 @@ package gotypes
 
 import (
 	"fmt"
-	"go/format"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -93,22 +91,25 @@ func thunk_gen_module(
 				}
 			}
 		}
-		err := in.writeFile(m.Name, modCodeGenPkg, declBody, filepath.Join(path, modCodeGenDir[len(modCodeGenDir)-1]+".go"), in.NoGoFmt, false)
+
+		err := declBody.WriteFile(in.Root, modCodeGenPkg, filepath.Join(path, modCodeGenDir[len(modCodeGenDir)-1]+".go"), in.NoGoFmt, []goimports.ImportSpec{})
 		if err != nil {
 			return err
 		}
 		if !in.ExcludeAst {
-			override := false
 			fname := modCodeGenDir[len(modCodeGenDir)-1] + "_ast.go"
 			if _, ok := in.specialTexpr()[m.Name]; ok && in.StdLibGen {
-				err := in.writeFile(m.Name, "goadl", astBody, filepath.Join(in.Outputdir, fname), in.NoGoFmt, true)
+				specialImports := []goimports.ImportSpec{{
+					Path:    filepath.Join(in.GoAdlPath, strings.ReplaceAll(m.Name, ".", "/")),
+					Name:    ".",
+					Aliased: true,
+				}}
+				err = astBody.WriteFile(in.Root, "goadl", filepath.Join(in.Outputdir, fname), in.NoGoFmt, specialImports)
 				if err != nil {
 					return err
 				}
-				override = true
-			}
-			if !override {
-				err := in.writeFile(m.Name, modCodeGenPkg, astBody, filepath.Join(path, fname), in.NoGoFmt, true)
+			} else {
+				err = astBody.WriteFile(in.Root, modCodeGenPkg, filepath.Join(path, fname), in.NoGoFmt, []goimports.ImportSpec{})
 				if err != nil {
 					return err
 				}
@@ -117,89 +118,6 @@ func thunk_gen_module(
 		return nil
 	}
 	return fn
-}
-
-func (in *GoTypes) writeFile(
-	moduleName string,
-	modCodeGenPkg string,
-	body *gogen.Generator,
-	path string,
-	noGoFmt bool,
-	genAst bool,
-) error {
-	var err error
-	dir, file := filepath.Split(path)
-	_ = file
-
-	if d, err := os.Stat(dir); err != nil {
-		err = os.MkdirAll(dir, os.ModePerm)
-		if err != nil {
-			return err
-		}
-	} else {
-		if !d.IsDir() {
-			return fmt.Errorf("directory expected %v", dir)
-		}
-	}
-
-	header := &gogen.Generator{
-		BaseGen: body.BaseGen,
-		Rr:      gogen.TemplateRenderer{Tmpl: templates},
-	}
-	header.Rr.Render(headerParams{
-		Pkg: modCodeGenPkg,
-	})
-	useImports := []goimports.ImportSpec{}
-	for _, spec := range body.Imports.Specs {
-		if body.Imports.Used[spec.Path] {
-			useImports = append(useImports, spec)
-		}
-	}
-	if _, ok := in.specialTexpr()[moduleName]; genAst && ok && in.StdLibGen {
-		useImports = append(useImports, goimports.ImportSpec{
-			Path:    filepath.Join(in.GoAdlPath, strings.ReplaceAll(moduleName, ".", "/")),
-			Name:    ".",
-			Aliased: true,
-		})
-	}
-
-	header.Rr.Render(importsParams{
-		Imports: useImports,
-	})
-	header.Rr.Buf.Write(body.Rr.Bytes())
-	unformatted := header.Rr.Bytes()
-
-	var formatted []byte
-	if !noGoFmt {
-		formatted, err = format.Source(unformatted)
-		if err != nil {
-			formatted = unformatted
-		}
-	} else {
-		formatted = unformatted
-	}
-	var fd *os.File = nil
-	fd, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	err = fd.Truncate(0)
-	if err != nil {
-		return err
-	}
-	_, err = fd.Seek(0, 0)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		fd.Sync()
-		fd.Close()
-	}()
-	_, err = fd.Write(formatted)
-	if in.Root.Debug {
-		fmt.Fprintf(os.Stderr, "wrote file %s\n", path)
-	}
-	return err
 }
 
 func (in *GoTypes) ReservedImports() []goimports.ImportSpec {

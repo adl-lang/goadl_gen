@@ -1,14 +1,12 @@
 package goapi
 
 import (
-	"bytes"
 	"embed"
-	"encoding/json"
-	"fmt"
-	"os"
-	"reflect"
 	"strings"
 	"text/template"
+
+	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
+	"github.com/adl-lang/goadlc/internal/cli/gogen"
 )
 
 func public(s string) string {
@@ -42,31 +40,56 @@ var (
 			ParseFS(templateFS, "templates/*"))
 )
 
-type templateRenderer struct {
-	buf bytes.Buffer
-	t   *template.Template
+type serviceParams struct {
+	G     *gogen.Generator
+	Name  string
+	IsCap bool
 }
 
-// Render calls ExecuteTemplate to render to its buffer.
-func (tr *templateRenderer) Render(params any) {
-	// Derive the template name from the name of the underlying type of
-	// params:
-	typeName := reflect.TypeOf(params).Name()
-	name := typeName[:len(typeName)-len("Params")]
-	err := tr.t.ExecuteTemplate(&tr.buf, name, params)
-	if err != nil {
-		data, _ := json.Marshal(params)
-		fmt.Fprintf(os.Stderr, "error executing template -- template: %s\nerror: %v\n%s", name, err, data)
-		panic(err)
-	}
-	// return nil
+type registerParams struct {
+	G           *gogen.Generator
+	Name        string
+	IsCap       bool
+	Annotations adlast.Annotations
+	V           *adlast.TypeExpr
+	CapApis     []*adlast.Field
 }
 
-func (tr *templateRenderer) RenderTemplate(name string, params any) error {
-	return tr.t.ExecuteTemplate(&tr.buf, name, params)
+type postParams struct {
+	G           *gogen.Generator
+	Name        string
+	Annotations adlast.Annotations
+	Req         adlast.TypeExpr
+	Resp        adlast.TypeExpr
+	IsCap       bool
 }
 
-// Bytes returns the accumulated bytes.
-func (tr *templateRenderer) Bytes() []byte {
-	return tr.buf.Bytes()
+type getParams struct {
+	G           *gogen.Generator
+	Name        string
+	Annotations adlast.Annotations
+	Resp        adlast.TypeExpr
+	IsCap       bool
+}
+
+type regpostParams struct {
+	G     *gogen.Generator
+	Name  string
+	IsCap bool
+}
+type reggetParams regpostParams
+
+type regcapapiParams struct {
+	G          *gogen.Generator
+	StructName string
+	FieldName  string
+}
+
+type getcapapiParams struct {
+	G           *gogen.Generator
+	Name        string
+	StructName  string
+	Annotations adlast.Annotations
+	C           adlast.TypeExpr
+	S           adlast.TypeExpr
 }

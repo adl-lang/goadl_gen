@@ -1,0 +1,1 @@
+	{{.Name | public}}(ctx {{.G.GoImport "context"}}Context{{if .IsCap}}, cap S{{end}}) ({{.G.GoType .Resp .Annotations}}, error)

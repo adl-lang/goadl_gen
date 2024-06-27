@@ -1,1 +1,1 @@
-type {{.Name}}_Service interface {
+type {{.Name}}_Service{{if .IsCap}}[C any, S any]{{end}} interface {

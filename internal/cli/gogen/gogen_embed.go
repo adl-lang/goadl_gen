@@ -4,6 +4,8 @@ import (
 	"embed"
 	"strings"
 	"text/template"
+
+	"github.com/adl-lang/goadlc/internal/cli/goimports"
 )
 
 func public(s string) string {
@@ -28,3 +30,12 @@ var (
 			}).
 			ParseFS(templateFS, "templates/*"))
 )
+
+type headerParams struct {
+	Pkg string
+}
+
+type importsParams struct {
+	// Rt      string
+	Imports []goimports.ImportSpec
+}

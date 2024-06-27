@@ -7,7 +7,6 @@ import (
 
 	"github.com/adl-lang/goadl_rt/v3/sys/adlast"
 	"github.com/adl-lang/goadlc/internal/cli/gogen"
-	"github.com/adl-lang/goadlc/internal/cli/goimports"
 )
 
 func public(s string) string {
@@ -47,15 +46,6 @@ type aTexprParams struct {
 	Name       string
 	TypeName   string
 	TypeParams gogen.TypeParam
-}
-
-type headerParams struct {
-	Pkg string
-}
-
-type importsParams struct {
-	// Rt      string
-	Imports []goimports.ImportSpec
 }
 
 type structParams struct {

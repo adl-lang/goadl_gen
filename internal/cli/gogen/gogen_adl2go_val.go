@@ -319,6 +319,9 @@ func (bg *goval_gen) goStruct(
 	if gt.Pkg != "" {
 		pkg = gt.Pkg + "."
 	}
+	if len(ret) == 0 {
+		return fmt.Sprintf("%sMakeAll_%s%s()", pkg, gt.Type, gt.TypeParams.RSide())
+	}
 	return fmt.Sprintf("%sMakeAll_%s%s(\n%s,\n)", pkg, gt.Type, gt.TypeParams.RSide(), strings.Join(ret, ",\n"))
 }
 
