@@ -50,51 +50,29 @@ func (in *GoApi) Run() error {
 		BaseGen: base,
 		Rr:      gogen.TemplateRenderer{Tmpl: templates},
 	}
-	genedSrvs := map[string]*apiInstance{}
-	apis := []*apiInstance{{
-		ParentName: "",
+	apis := &apiInstance{
 		Struct:     apiSt,
 		ScopedName: in.ApiStruct,
 		Field:      nil,
-		Kids:       []*apiInstance{},
-	}}
-	// NOTE: ADL can't have instance of self recursive type, so no need to deal with this case (i.e. remove yup flag)
-	for i := 0; i < len(apis); i++ {
-		// fmt.Fprintf(os.Stderr, "capapis %v\n", lo.Map(capapis, func(fi nameStruct, _ int) string {
-		// 	return fi.Name.Name
-		// }))
-		inst0 := apis[i]
-		if prevSt, ok := genedSrvs[inst0.ScopedName.Name]; ok {
-			if prevSt.ScopedName == in.ApiStruct {
-				return fmt.Errorf("unexpected - starting struct can't also be used as a capabilty api, use a newtype")
-			}
-			if prevSt.ScopedName.ModuleName != inst0.ScopedName.ModuleName {
-				return fmt.Errorf("unexpected - (alias error) can't used two struct with the same name from different modules, use a newtype")
-			}
-			continue
-		}
-		newapis, err := in.genInterface(body, inst0)
-		inst0.Kids = newapis
+	}
+	result0 := []*apiInstance{}
+	visited0 := map[string]bool{}
+	err = in.dfs(apis, apis, visited0, &result0)
+	if err != nil {
+		return err
+	}
+	in.genInterface(body, apis)
+	in.genRegister(body, apis)
+	for _, apis0 := range result0[1:] {
+		result1 := []*apiInstance{}
+		visited1 := map[string]bool{}
+		err = in.dfs(apis, apis, visited1, &result1)
 		if err != nil {
 			return err
 		}
-		genedSrvs[inst0.ScopedName.Name] = inst0
-		// fmt.Fprintf(os.Stderr, "newapis %v\n", lo.Map(newapis, func(fi nameStruct, _ int) string {
-		// 	return fi.Name.Name
-		// }))
-		apis = append(apis, newapis...)
+		in.genInterface(body, apis0)
+		in.genRegister(body, apis0)
 	}
-
-	uapis := lo.UniqBy(apis, func(it *apiInstance) string {
-		return it.ScopedName.Name
-	})
-	for _, inst := range uapis {
-		err = in.genRegister(body, inst)
-		if err != nil {
-			return err
-		}
-	}
-
 	modCodeGenDir := strings.Split(in.ApiStruct.ModuleName, ".")
 	modCodeGenPkg := modCodeGenDir[len(modCodeGenDir)-1]
 	path := fp.Join(fp.Join(in.Outputdir, fp.Join(modCodeGenDir...)), modCodeGenPkg+"_srv.go")
@@ -102,54 +80,96 @@ func (in *GoApi) Run() error {
 	if err != nil {
 		return err
 	}
-
-	// header := &gogen.Generator{
-	// 	BaseGen: body.BaseGen,
-	// 	Rr:      gogen.TemplateRenderer{Tmpl: templates},
-	// }
-
-	// header.Rr.Render(headerParams{
-	// 	Pkg: modCodeGenPkg,
-	// })
-	// useImports := []goimports.ImportSpec{}
-	// for _, spec := range body.Imports.Specs {
-	// 	if body.Imports.Used[spec.Path] {
-	// 		useImports = append(useImports, spec)
-	// 	}
-	// }
-	// header.Rr.Render(importsParams{
-	// 	Imports: useImports,
-	// })
-	// header.Rr.Buf.Write(body.Rr.Bytes())
-
-	// fmt.Printf("%s\n", header.Rr.Buf.String())
-
 	return nil
 }
 
+var reservedNames = []string{"C", "c", "S", "s", "V", "v"}
+
+func (in *GoApi) dfs(root *apiInstance, apiSt *apiInstance, visited map[string]bool, result *[]*apiInstance) error {
+	if lo.Contains(reservedNames, apiSt.ScopedName.Name) {
+		return fmt.Errorf("error srtuct of type CapabilityApi name clash with type params (can't be named [C,S,V]). %s.%s", apiSt.ScopedName.ModuleName, apiSt.ScopedName.Name)
+	}
+	if visited[apiSt.ScopedName.Name] {
+		curr, _ := lo.Find(*result, func(it *apiInstance) bool {
+			return it.ScopedName.Name == apiSt.ScopedName.Name
+		})
+		if curr.ScopedName.ModuleName != apiSt.ScopedName.ModuleName {
+			return fmt.Errorf("unexpected - (alias error) can't used two struct with the same name from different modules, use a newtype")
+		}
+		if root != nil {
+			if root == curr {
+				return fmt.Errorf("unexpected - starting struct can't also be used as a capabilty api, use a newtype")
+			}
+		}
+		return nil
+	}
+	visited[apiSt.ScopedName.Name] = true
+	*result = append(*result, apiSt)
+	for _, fi := range apiSt.Struct.Fields {
+		if ref, ok := fi.TypeExpr.TypeRef.Cast_reference(); ok && ref.Name == "CapabilityApi" {
+			if lo.Contains(reservedNames, fi.Name) {
+				return fmt.Errorf("error fields of type CapabilityApi name clash with type params (can't be named [C,S,V]). %s.%s::%s", apiSt.ScopedName.ModuleName, apiSt.ScopedName.Name, fi.Name)
+			}
+			apiTe := fi.TypeExpr.Parameters[2]
+			apiRef, ok := apiTe.TypeRef.Cast_reference()
+			if !ok {
+				return fmt.Errorf("unexpected - cap api is not a ref. TypeExpre : %v", apiTe)
+			}
+			decl, exist := in.Loader.Resolver(apiRef)
+			if !exist {
+				return fmt.Errorf("can't resolve decl. Ref : %v", apiRef)
+			}
+			capSt, ok := decl.Type_.Cast_struct_()
+			if !ok {
+				return fmt.Errorf("unexpected - cap api is not a struct. Ref : %v", apiRef)
+			}
+			inst0 := &apiInstance{
+				Struct:     capSt,
+				ScopedName: apiRef,
+				Field:      &fi,
+			}
+			err := in.dfs(nil, inst0, visited, result)
+			if err != nil {
+				return nil
+			}
+		}
+	}
+	return nil
+}
+
+func (in *GoApi) transKids(path string, apiSt *adlast.Struct) []tkid {
+	return lo.FlatMap(apiSt.Fields, func(fi adlast.Field, _ int) []tkid {
+		ret := []tkid{}
+		if ref, ok := fi.TypeExpr.TypeRef.Cast_reference(); ok && ref.Name == "CapabilityApi" {
+			apiTe := fi.TypeExpr.Parameters[2]
+			apiRef, _ := apiTe.TypeRef.Cast_reference()
+			decl, _ := in.Loader.Resolver(apiRef)
+			capSt, _ := decl.Type_.Cast_struct_()
+			kids := in.transKids(path+fi.Name+"_", &capSt)
+
+			name := path + fi.Name
+			ret = append(ret, tkid{name, &fi})
+			ret = append(ret, kids...)
+		}
+		return ret
+	})
+}
+
 type apiInstance struct {
-	// empty str if root (cli specified struct)
-	ParentName string
 	Struct     adlast.Struct
 	ScopedName adlast.ScopedName
-	// nil if root
-	Field *adlast.Field
-	Kids  []*apiInstance
+	Field      *adlast.Field
 }
 
 func (in *GoApi) genInterface(
 	body *gogen.Generator,
 	inst *apiInstance,
-	// name string,
-	// apiSt adlast.Struct,
-	// isCap bool,
-) ([]*apiInstance, error) {
+) {
 	body.Rr.Render(serviceParams{
 		G:     body,
 		Name:  inst.ScopedName.Name,
 		IsCap: inst.Field != nil,
 	})
-	capapis := []*apiInstance{}
 	for _, fi := range inst.Struct.Fields {
 		if ref, ok := fi.TypeExpr.TypeRef.Cast_reference(); ok {
 			switch ref.Name {
@@ -172,19 +192,7 @@ func (in *GoApi) genInterface(
 				})
 			case "CapabilityApi":
 				apiTe := fi.TypeExpr.Parameters[2]
-				apiRef, ok := apiTe.TypeRef.Cast_reference()
-				if !ok {
-					return nil, fmt.Errorf("unexpected - cap api is not a ref. TypeExpre : %v", apiTe)
-				}
-				decl, exist := in.Loader.Resolver(apiRef)
-				if !exist {
-					return nil, fmt.Errorf("can't resolve decl. Ref : %v", apiRef)
-				}
-				capSt, ok := decl.Type_.Cast_struct_()
-				if !ok {
-					return nil, fmt.Errorf("unexpected - cap api is not a struct. Ref : %v", apiRef)
-				}
-				capapis = append(capapis, &apiInstance{inst.ScopedName.Name, capSt, apiRef, &fi, []*apiInstance{}})
+				apiRef, _ := apiTe.TypeRef.Cast_reference()
 				body.Rr.Render(getcapapiParams{
 					G:           body,
 					Name:        fi.Name,
@@ -197,7 +205,6 @@ func (in *GoApi) genInterface(
 		}
 	}
 	body.Rr.Buf.WriteString("}\n")
-	return capapis, nil
 }
 
 func (in *GoApi) genRegister(
@@ -210,15 +217,14 @@ func (in *GoApi) genRegister(
 		ann = inst.Field.Annotations
 		vte = &inst.Field.TypeExpr.Parameters[2]
 	}
+	tkids := in.transKids("", &inst.Struct)
 	body.Rr.Render(registerParams{
 		G:           body,
 		Name:        inst.ScopedName.Name,
 		IsCap:       inst.Field != nil,
 		V:           vte,
 		Annotations: ann,
-		CapApis: lo.Map(inst.Kids, func(api *apiInstance, _ int) *adlast.Field {
-			return api.Field
-		}),
+		CapApis:     tkids,
 	})
 	for _, fi := range inst.Struct.Fields {
 		if ref, ok := fi.TypeExpr.TypeRef.Cast_reference(); ok {
@@ -238,12 +244,15 @@ func (in *GoApi) genRegister(
 			case "CapabilityApi":
 				apiTe := fi.TypeExpr.Parameters[2]
 				apiRef, _ := apiTe.TypeRef.Cast_reference()
-				// decl, _ := in.Loader.Resolver(apiRef)
-				// capSt, _ := decl.Type_.Cast_struct_()
+				decl, _ := in.Loader.Resolver(apiRef)
+				capSt, _ := decl.Type_.Cast_struct_()
+				tkid := []tkid{{fi.Name, &fi}}
+				tkid = append(tkid, in.transKids(fi.Name+"_", &capSt)...)
 				body.Rr.Render(regcapapiParams{
 					G:          body,
 					StructName: apiRef.Name,
-					FieldName:  fi.Name,
+					Name:       fi.Name,
+					Kids:       tkid,
 				})
 			}
 		}

@@ -8,8 +8,8 @@
 	mux *{{.G.GoImport "http"}}ServeMux,
 	srv {{.Name}}_Service,
 {{- end}}
-{{- range .CapApis}}{{$C := index .TypeExpr.Parameters 0}}{{$S := index .TypeExpr.Parameters 1}}
-	{{.Name | lower}}_capr {{$G.GoImport "capability"}}CapabilityRetriever[{{$G.GoType $C .Annotations}}, {{$G.GoType $S .Annotations}}],
+{{- range .CapApis}}{{$C := index .Field.TypeExpr.Parameters 0}}{{$S := index .Field.TypeExpr.Parameters 1}}
+	{{.Name | lower}}_capr {{$G.GoImport "capability"}}CapabilityRetriever[{{$G.GoType $C .Field.Annotations}}, {{$G.GoType $S .Field.Annotations}}],
 {{- end}}
 ) {
 	{{if .IsCap}}reqs := api.Service{{else}}reqs := Make_{{.Name}}(){{end}}

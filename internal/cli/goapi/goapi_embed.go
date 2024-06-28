@@ -16,13 +16,6 @@ func public(s string) string {
 	return strings.ToUpper(s[:1]) + s[1:]
 }
 
-// func goEscape(n string) string {
-// 	if g, h := goKeywords[n]; h {
-// 		return g
-// 	}
-// 	return n
-// }
-
 var (
 	//go:embed templates/*
 	templateFS embed.FS
@@ -52,7 +45,7 @@ type registerParams struct {
 	IsCap       bool
 	Annotations adlast.Annotations
 	V           *adlast.TypeExpr
-	CapApis     []*adlast.Field
+	CapApis     []tkid
 }
 
 type postParams struct {
@@ -82,7 +75,13 @@ type reggetParams regpostParams
 type regcapapiParams struct {
 	G          *gogen.Generator
 	StructName string
-	FieldName  string
+	Name       string
+	Kids       []tkid
+}
+
+type tkid struct {
+	Name  string
+	Field *adlast.Field
 }
 
 type getcapapiParams struct {
